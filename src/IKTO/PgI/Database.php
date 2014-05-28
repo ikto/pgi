@@ -68,6 +68,44 @@ class Database
         }
     }
 
+    public function selectRowArray($query)
+    {
+        $res = $this->executeQuery($query);
+        if ($res) {
+            $row = pg_fetch_row($res);
+
+            if ($row) {
+                $row = ResultDecoder::decodeRow($res, $row);
+            }
+
+            return $row;
+        } else {
+            return null;
+        }
+    }
+
+    public function selectRowAssoc($query)
+    {
+        $res = $this->executeQuery($query);
+        if ($res) {
+            $row = pg_fetch_row($res);
+
+            if ($row) {
+                $row = ResultDecoder::decodeRow($res, $row);
+            }
+
+            $assoc = array();
+
+            for ($i = 0; $i < count($row); $i++) {
+                $assoc[pg_field_name($res, $i)] = $row[$i];
+            }
+
+            return $assoc;
+        } else {
+            return null;
+        }
+    }
+
     protected function executeQuery($query)
     {
         return pg_query($this->connection, $query);
