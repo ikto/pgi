@@ -41,6 +41,10 @@ class ParamsEncoder
                 }
             }
 
+            if (is_array($value)) {
+                $value = self::pgArrayFromPhp($value);
+            }
+
             $output[] = $value;
         }
 
