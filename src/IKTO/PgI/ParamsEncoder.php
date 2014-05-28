@@ -5,6 +5,47 @@ namespace IKTO\PgI;
 class ParamsEncoder
 {
     const BYTEA         = 'bytea';
+    const JSON          = 'json';
+    const TIMESTAMP     = 'timestamp';
+    const TIMESTAMPTZ   = 'timestamptz';
+
+    public static function encodeRow($types = array(), $values = array(), $pgconn = null)
+    {
+        $keys = array_keys($values);
+        sort($keys, SORT_NUMERIC);
+
+        $output = array();
+
+        foreach ($keys as $key) {
+            $value = $values[$key];
+
+            if (isset($types[$key])) {
+                if ($types[$key] == self::JSON) {
+                    $value = json_encode($value);
+                } elseif ($types[$key] == self::BYTEA) {
+                    if ($pgconn) {
+                        $value = pg_escape_bytea($pgconn, $value);
+                    } else {
+                        $value = pg_escape_bytea($value);
+                    }
+                } elseif ($types[$key] == self::TIMESTAMP) {
+                    if ($value instanceof \DateTimeInterface || $value instanceof \DateTime || $value instanceof \DateTimeImmutable) {
+                        /* @var \DateTimeInterface $value */
+                        $value = $value->format('Y-m-d\TH:i:s');
+                    }
+                } elseif ($types[$key] == self::TIMESTAMPTZ) {
+                    if ($value instanceof \DateTimeInterface || $value instanceof \DateTime || $value instanceof \DateTimeImmutable) {
+                        /* @var \DateTimeInterface $value */
+                        $value = $value->format(\DateTime::W3C);
+                    }
+                }
+            }
+
+            $output[] = $value;
+        }
+
+        return $output;
+    }
 
     public static function pgArrayFromPhp($array)
     {

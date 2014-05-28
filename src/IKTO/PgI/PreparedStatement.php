@@ -64,7 +64,15 @@ class PreparedStatement
             $this->params[$i] = $param;
         }
 
-        $this->result = pg_execute($this->hive->getConnectionHandle(), $this->name, $this->params);
+        $this->result = pg_execute(
+            $this->hive->getConnectionHandle(),
+            $this->name,
+            ParamsEncoder::encodeRow($this->paramTypes, $this->params)
+        );
+
+        $this->paramTypes = array();
+        $this->params = array();
+
         if ($this->result) {
             $this->affectedRows = pg_affected_rows($this->result);
 
