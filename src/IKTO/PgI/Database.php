@@ -78,6 +78,8 @@ class Database
                 $row = ResultDecoder::decodeRow($res, $row);
             }
 
+            pg_free_result($res);
+
             return $row;
         } else {
             return null;
@@ -99,6 +101,8 @@ class Database
             for ($i = 0; $i < count($row); $i++) {
                 $assoc[pg_field_name($res, $i)] = $row[$i];
             }
+
+            pg_free_result($res);
 
             return $assoc;
         } else {
