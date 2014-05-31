@@ -2,6 +2,8 @@
 
 namespace IKTO\PgI;
 
+use IKTO\PgI;
+
 class Database
 {
     protected $connection;
@@ -188,6 +190,21 @@ class Database
             if (!pg_query($this->connection, 'COMMIT')) {
                 throw new \RuntimeException('Cannot commit transaction');
             }
+        }
+    }
+
+    public function getTransactionStatus()
+    {
+        $status = pg_transaction_status($this->connection);
+        switch ($status) {
+            case PGSQL_TRANSACTION_IDLE:
+                return PgI::TRANSACTION_INACTIVE;
+            case PGSQL_TRANSACTION_INTRANS:
+                return PgI::TRANSACTION_ACTIVE;
+            case PGSQL_TRANSACTION_INERROR:
+                return PgI::TRANSACTION_ERROR;
+            default:
+                return false;
         }
     }
 
