@@ -67,7 +67,11 @@ class PreparedStatement
         $this->result = pg_execute(
             $this->hive->getConnectionHandle(),
             $this->name,
-            ParamsEncoder::encodeRow($this->paramTypes, $this->params)
+            ParamsEncoder::encodeRow(
+                $this->paramTypes,
+                $this->params,
+                $this->hive->getConnectionHandle()
+            )
         );
 
         $this->paramTypes = array();

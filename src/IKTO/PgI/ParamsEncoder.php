@@ -32,17 +32,28 @@ class ParamsEncoder
                     if ($value instanceof \DateTimeInterface || $value instanceof \DateTime || $value instanceof \DateTimeImmutable) {
                         /* @var \DateTimeInterface $value */
                         $value = $value->format('Y-m-d\TH:i:s');
+                    } else {
+                        throw new InvalidArgumentException("The timestamp data must be represented as DateTime instance (or similar)");
                     }
                 } elseif ($types[$key] == self::TIMESTAMPTZ) {
                     if ($value instanceof \DateTimeInterface || $value instanceof \DateTime || $value instanceof \DateTimeImmutable) {
                         /* @var \DateTimeInterface $value */
                         $value = $value->format(\DateTime::W3C);
+                    } else {
+                        throw new InvalidArgumentException("The timestamptz data must be represented as DateTime instance (or similar)");
                     }
                 }
             }
 
             if (is_array($value)) {
                 $value = self::pgArrayFromPhp($value);
+            }
+            elseif (is_bool($value)) {
+                $value = $value ? 't' : 'f';
+            }
+            elseif ($value instanceof \DateTimeInterface || $value instanceof \DateTime || $value instanceof \DateTimeImmutable) {
+                /* @var \DateTimeInterface $value */
+                $value = $value->format(\DateTime::W3C);
             }
 
             $output[] = $value;
