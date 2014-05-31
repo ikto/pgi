@@ -58,9 +58,9 @@ class Database
         return new PreparedStatement($this, $query);
     }
 
-    public function doQuery($query)
+    public function doQuery($query, $types = array(), $params = array())
     {
-        $res = $this->executeQuery($query);
+        $res = $this->executeQuery($query, $types, $params);
         if ($res) {
             return pg_affected_rows($res);
         } else {
@@ -68,9 +68,9 @@ class Database
         }
     }
 
-    public function selectRowArray($query)
+    public function selectRowArray($query, $types = array(), $params = array())
     {
-        $res = $this->executeQuery($query);
+        $res = $this->executeQuery($query, $types, $params);
         if ($res) {
             $row = pg_fetch_row($res);
 
@@ -86,9 +86,9 @@ class Database
         }
     }
 
-    public function selectRowAssoc($query)
+    public function selectRowAssoc($query, $types = array(), $params = array())
     {
-        $res = $this->executeQuery($query);
+        $res = $this->executeQuery($query, $types, $params);
         if ($res) {
             $row = pg_fetch_row($res);
 
@@ -110,9 +110,9 @@ class Database
         }
     }
 
-    public function selectColArray($query)
+    public function selectColArray($query, $types = array(), $params = array())
     {
-        $res = $this->executeQuery($query);
+        $res = $this->executeQuery($query, $types, $params);
         if ($res) {
             $rows = pg_fetch_all_columns($res, 0);
 
@@ -131,8 +131,23 @@ class Database
         }
     }
 
-    protected function executeQuery($query)
+    protected function executeQuery($query, $types = array(), $params = array())
     {
-        return pg_query($this->connection, $query);
+        $typesIndex = array_keys($types);
+        sort($typesIndex, SORT_NUMERIC);
+        $paramTypes = array();
+        foreach ($typesIndex as $typeIndex) {
+            $paramTypes[$typeIndex - 1] = $types[$typeIndex];
+        }
+
+        return pg_query_params(
+            $this->connection,
+            $query,
+            ParamsEncoder::encodeRow(
+                $paramTypes,
+                $params,
+                $this->connection
+            )
+        );
     }
 }
