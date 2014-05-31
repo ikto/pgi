@@ -6,6 +6,8 @@ class Database
 {
     protected $connection;
     protected $preparedStatements = array();
+    protected $savepointNames = array();
+    protected $transactionStack = array();
 
     public function __construct($dsn, $user = null, $password = null)
     {
@@ -138,6 +140,57 @@ class Database
         }
     }
 
+    public function beginWork()
+    {
+        $status = pg_transaction_status($this->connection);
+        if (($status == PGSQL_TRANSACTION_INTRANS) || ($status == PGSQL_TRANSACTION_INERROR)) {
+            $name = $this->getSavepointName();
+            if (pg_query($this->connection, 'SAVEPOINT "' . $name . '"')) {
+                array_push($this->transactionStack, $name);
+                $this->savepointNames[$name] = 1;
+            } else {
+                throw new \RuntimeException("Cannot create savepoint $name");
+            }
+        } else {
+            if (!pg_query($this->connection, 'BEGIN')) {
+                throw new \RuntimeException("Cannot start the transaction");
+            }
+        }
+
+    }
+
+    public function rollback()
+    {
+        if (count($this->transactionStack)) {
+            $name = array_pop($this->transactionStack);
+            if (pg_query($this->connection, 'ROLLBACK TO "' . $name . '"')) {
+                unset($this->savepointNames[$name]);
+            } else {
+                throw new \RuntimeException("Cannot rollback to savepoint $name");
+            }
+        } else {
+            if (!pg_query($this->connection, 'ROLLBACK')) {
+                throw new \RuntimeException('Cannot cancel transaction');
+            }
+        }
+    }
+
+    public function commit()
+    {
+        if (count($this->transactionStack)) {
+            $name = array_pop($this->transactionStack);
+            if (pg_query($this->connection, 'RELEASE SAVEPOINT "' . $name . '"')) {
+                unset($this->savepointNames[$name]);
+            } else {
+                throw new \RuntimeException("Cannot release savepoint $name");
+            }
+        } else {
+            if (!pg_query($this->connection, 'COMMIT')) {
+                throw new \RuntimeException('Cannot commit transaction');
+            }
+        }
+    }
+
     protected function executeQuery($query, $types = array(), $params = array())
     {
         $typesIndex = array_keys($types);
@@ -156,5 +209,14 @@ class Database
                 $this->connection
             )
         );
+    }
+
+    protected function getSavepointName()
+    {
+        do {
+            $name = uniqid() . uniqid();
+        } while (isset($this->savepointNames[$name]));
+
+        return $name;
     }
 }
