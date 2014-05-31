@@ -64,7 +64,7 @@ class Database
         if ($res) {
             return pg_affected_rows($res);
         } else {
-            return null;
+            return false;
         }
     }
 
@@ -76,13 +76,16 @@ class Database
 
             if ($row) {
                 $row = ResultDecoder::decodeRow($res, $row);
+                pg_free_result($res);
+
+                return $row;
+            } else {
+                pg_free_result($res);
+
+                return null;
             }
-
-            pg_free_result($res);
-
-            return $row;
         } else {
-            return null;
+            return false;
         }
     }
 
@@ -94,19 +97,20 @@ class Database
 
             if ($row) {
                 $row = ResultDecoder::decodeRow($res, $row);
+                $assoc = array();
+                for ($i = 0; $i < count($row); $i++) {
+                    $assoc[pg_field_name($res, $i)] = $row[$i];
+                }
+                pg_free_result($res);
+
+                return $assoc;
+            } else {
+                pg_free_result($res);
+
+                return null;
             }
-
-            $assoc = array();
-
-            for ($i = 0; $i < count($row); $i++) {
-                $assoc[pg_field_name($res, $i)] = $row[$i];
-            }
-
-            pg_free_result($res);
-
-            return $assoc;
         } else {
-            return null;
+            return false;
         }
     }
 
@@ -121,13 +125,16 @@ class Database
                     $r = ResultDecoder::decodeRow($res, array($value));
                     return $r[0];
                 }, $rows);
+                pg_free_result($res);
+
+                return $rows;
+            } else {
+                pg_free_result($res);
+
+                return null;
             }
-
-            pg_free_result($res);
-
-            return $rows;
         } else {
-            return null;
+            return false;
         }
     }
 
