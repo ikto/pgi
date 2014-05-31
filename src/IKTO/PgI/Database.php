@@ -110,6 +110,27 @@ class Database
         }
     }
 
+    public function selectColArray($query)
+    {
+        $res = $this->executeQuery($query);
+        if ($res) {
+            $rows = pg_fetch_all_columns($res, 0);
+
+            if (is_array($rows)) {
+                $rows = array_map(function ($value) use ($res) {
+                    $r = ResultDecoder::decodeRow($res, array($value));
+                    return $r[0];
+                }, $rows);
+            }
+
+            pg_free_result($res);
+
+            return $rows;
+        } else {
+            return null;
+        }
+    }
+
     protected function executeQuery($query)
     {
         return pg_query($this->connection, $query);
