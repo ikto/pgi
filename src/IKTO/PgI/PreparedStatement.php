@@ -20,7 +20,7 @@ class PreparedStatement
             $this->name = uniqid() . uniqid();
         } while ($this->hive->isPreparedStatementExists($this));
 
-        if ($this->hive->prepareStatement($this->name, $query) === FALSE) {
+        if ($this->hive->pgPrepareStatement($this->name, $query) === FALSE) {
             throw new RuntimeException('Cannot create prepared statement');
         }
 
@@ -32,7 +32,7 @@ class PreparedStatement
         if ($this->result) {
             pg_free_result($this->result);
         }
-        pg_query($this->hive->getConnectionHandle(), "DEALLOCATE PREPARE \"{$this->name}\"");
+        $this->hive->pgQuery("DEALLOCATE PREPARE \"{$this->name}\"");
         $this->hive->removePreparedStatement($this);
     }
 
@@ -64,7 +64,7 @@ class PreparedStatement
             $this->params[$i] = $param;
         }
 
-        $this->result = $this->hive->executePreparedStatement(
+        $this->result = $this->hive->pgExecutePreparedStatement(
             $this->name,
             ParamsEncoder::encodeRow(
                 $this->paramTypes,

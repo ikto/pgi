@@ -208,14 +208,19 @@ class Database
         }
     }
 
-    public function prepareStatement($name, $query)
+    public function pgPrepareStatement($name, $query)
     {
         return pg_prepare($this->connection, $name, $query);
     }
 
-    public function executePreparedStatement($name, $args)
+    public function pgExecutePreparedStatement($name, $args)
     {
         return pg_execute($this->connection, $name, $args);
+    }
+
+    public function pgQuery($query)
+    {
+        return pg_query($this->connection, $query);
     }
 
     protected function executeQuery($query, $types = array(), $params = array())
