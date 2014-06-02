@@ -208,6 +208,16 @@ class Database
         }
     }
 
+    public function prepareStatement($name, $query)
+    {
+        return pg_prepare($this->connection, $name, $query);
+    }
+
+    public function executePreparedStatement($name, $args)
+    {
+        return pg_execute($this->connection, $name, $args);
+    }
+
     protected function executeQuery($query, $types = array(), $params = array())
     {
         $typesIndex = array_keys($types);

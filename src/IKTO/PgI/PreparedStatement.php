@@ -20,7 +20,7 @@ class PreparedStatement
             $this->name = uniqid() . uniqid();
         } while ($this->hive->isPreparedStatementExists($this));
 
-        if (pg_prepare($this->hive->getConnectionHandle(), $this->name, $query) === FALSE) {
+        if ($this->hive->prepareStatement($this->name, $query) === FALSE) {
             throw new RuntimeException('Cannot create prepared statement');
         }
 
@@ -64,8 +64,7 @@ class PreparedStatement
             $this->params[$i] = $param;
         }
 
-        $this->result = pg_execute(
-            $this->hive->getConnectionHandle(),
+        $this->result = $this->hive->executePreparedStatement(
             $this->name,
             ParamsEncoder::encodeRow(
                 $this->paramTypes,
