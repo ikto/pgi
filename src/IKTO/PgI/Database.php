@@ -166,7 +166,9 @@ class Database
         if (count($this->transactionStack)) {
             $name = array_pop($this->transactionStack);
             if ($this->pgQuery('ROLLBACK TO "' . $name . '"')) {
-                unset($this->savepointNames[$name]);
+                if ($this->pgQuery('RELEASE SAVEPOINT "' . $name . '"')) {
+                    unset($this->savepointNames[$name]);
+                }
             } else {
                 throw new \RuntimeException("Cannot rollback to savepoint $name");
             }
