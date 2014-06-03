@@ -147,14 +147,14 @@ class Database
         $status = pg_transaction_status($this->connection);
         if (($status == PGSQL_TRANSACTION_INTRANS) || ($status == PGSQL_TRANSACTION_INERROR)) {
             $name = $this->getSavepointName();
-            if (pg_query($this->connection, 'SAVEPOINT "' . $name . '"')) {
+            if ($this->pgQuery('SAVEPOINT "' . $name . '"')) {
                 array_push($this->transactionStack, $name);
                 $this->savepointNames[$name] = 1;
             } else {
                 throw new \RuntimeException("Cannot create savepoint $name");
             }
         } else {
-            if (!pg_query($this->connection, 'BEGIN')) {
+            if (!$this->pgQuery('BEGIN')) {
                 throw new \RuntimeException("Cannot start the transaction");
             }
         }
@@ -165,13 +165,13 @@ class Database
     {
         if (count($this->transactionStack)) {
             $name = array_pop($this->transactionStack);
-            if (pg_query($this->connection, 'ROLLBACK TO "' . $name . '"')) {
+            if ($this->pgQuery('ROLLBACK TO "' . $name . '"')) {
                 unset($this->savepointNames[$name]);
             } else {
                 throw new \RuntimeException("Cannot rollback to savepoint $name");
             }
         } else {
-            if (!pg_query($this->connection, 'ROLLBACK')) {
+            if (!$this->pgQuery('ROLLBACK')) {
                 throw new \RuntimeException('Cannot cancel transaction');
             }
         }
@@ -181,13 +181,13 @@ class Database
     {
         if (count($this->transactionStack)) {
             $name = array_pop($this->transactionStack);
-            if (pg_query($this->connection, 'RELEASE SAVEPOINT "' . $name . '"')) {
+            if ($this->pgQuery('RELEASE SAVEPOINT "' . $name . '"')) {
                 unset($this->savepointNames[$name]);
             } else {
                 throw new \RuntimeException("Cannot release savepoint $name");
             }
         } else {
-            if (!pg_query($this->connection, 'COMMIT')) {
+            if (!$this->pgQuery('COMMIT')) {
                 throw new \RuntimeException('Cannot commit transaction');
             }
         }
@@ -223,6 +223,11 @@ class Database
         return pg_query($this->connection, $query);
     }
 
+    public function pgQueryParams($query, $params)
+    {
+        return pg_query_params($this->connection, $query, $params);
+    }
+
     protected function executeQuery($query, $types = array(), $params = array())
     {
         $typesIndex = array_keys($types);
@@ -232,8 +237,7 @@ class Database
             $paramTypes[$typeIndex - 1] = $types[$typeIndex];
         }
 
-        return pg_query_params(
-            $this->connection,
+        return $this->pgQueryParams(
             $query,
             ParamsEncoder::encodeRow(
                 $paramTypes,
