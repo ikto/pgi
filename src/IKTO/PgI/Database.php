@@ -210,6 +210,26 @@ class Database
         }
     }
 
+    public function getSeqNextValue($sequence)
+    {
+        $res = $this->executeQuery('SELECT NEXTVAL(\'' . $sequence . '\'::regclass)');
+        if (!$res) {
+            return false;
+        }
+
+        $row = pg_fetch_row($res);
+        if (!$row) {
+            pg_free_result($res);
+
+            return false;
+        }
+
+        $row = ResultDecoder::decodeRow($res, $row);
+        pg_free_result($res);
+
+        return $row[0];
+    }
+
     public function pgPrepareStatement($name, $query)
     {
         return pg_prepare($this->connection, $name, $query);
