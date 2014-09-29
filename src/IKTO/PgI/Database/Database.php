@@ -1,15 +1,31 @@
 <?php
 
-namespace IKTO\PgI;
+namespace IKTO\PgI\Database;
 
 use IKTO\PgI;
+use IKTO\PgI\Exception\ConnectionException;
+use IKTO\PgI\Exception\DuplicationException;
+use IKTO\PgI\Exception\InvalidArgumentException;
+use IKTO\PgI\Statement\Prepared;
+use IKTO\PgI\Statement\Plain;
+use IKTO\PgI\ResultDecoder;
+use IKTO\PgI\Helper\PgExceptionHelper;
+use IKTO\PgI\Helper\ParamEncoder;
+use IKTO\PgI\Helper\ParamDecoder;
+use IKTO\PgI\Converter\ConverterInterface;
 
-class Database
+class Database implements DatabaseInterface
 {
     protected $connection;
     protected $preparedStatements = array();
     protected $savepointNames = array();
     protected $transactionStack = array();
+    protected $converters = array();
+
+    /* @var ParamEncoder */
+    private $encoder;
+
+    private $decoder;
 
     public function __construct($dsn, $user = null, $password = null)
     {
@@ -20,16 +36,35 @@ class Database
             $dsn .= " password=$password";
         }
 
+        $connectionError = null;
+        set_error_handler(function ($errno, $errstr) use (&$connectionError) {
+            $connectionError = $errstr;
+        });
         $this->connection = pg_connect($dsn, PGSQL_CONNECT_FORCE_NEW);
+        restore_error_handler();
 
-        if ($this->connection === false) {
-            throw new RuntimeException(sprintf("Cannot connect to PostgreSQL database"));
+        if (false === $this->connection) {
+            throw new ConnectionException($connectionError ?: 'Unable to connect to PostgreSQL server');
         }
     }
 
     public function __destruct()
     {
-        pg_close($this->connection);
+        foreach ($this->converters as $key => $value) {
+            if ($value instanceof ConverterInterface) {
+                unset($this->converters[$key]);
+            }
+        }
+
+        if ($this->encoder) {
+            unset($this->encoder);
+        }
+
+        if ($this->decoder) {
+            unset($this->decoder);
+        }
+
+        @pg_close($this->connection);
     }
 
     public function getConnectionHandle()
@@ -37,29 +72,14 @@ class Database
         return $this->connection;
     }
 
-    public function addPreparedStatement(PreparedStatement $statement)
-    {
-        $this->preparedStatements[$statement->getName()] = 1;
-    }
-
-    public function removePreparedStatement(PreparedStatement $statement)
-    {
-        $name = $statement->getName();
-        if (isset($this->preparedStatements[$name])) {
-            unset($this->preparedStatements[$name]);
-        }
-    }
-
-    public function isPreparedStatementExists(PreparedStatement $statement)
-    {
-        $name = $statement->getName();
-
-        return isset($this->preparedStatements[$name]);
-    }
-
     public function prepare($query)
     {
-        return new PreparedStatement($this, $query);
+        return new Prepared($this, $query);
+    }
+
+    public function create($query)
+    {
+        return new Plain($this, $query);
     }
 
     public function doQuery($query, $types = array(), $params = array())
@@ -230,24 +250,84 @@ class Database
         return $row[0];
     }
 
-    public function pgPrepareStatement($name, $query)
+    public function pgPrepare($name, $query)
     {
-        return pg_prepare($this->connection, $name, $query);
+        if (isset($this->preparedStatements[$name])) {
+            throw new DuplicationException(sprintf('Statement with name "%s" already prepared', $name));
+        }
+
+        if (PgExceptionHelper::provideQueryException(function ($connection, $name, $query) {
+            return pg_prepare($connection, $name, $query);
+        }, array($this->connection, $name, $query))) {
+            $this->preparedStatements[$name] = 1;
+        }
     }
 
-    public function pgExecutePreparedStatement($name, $args)
+    public function pgExecute($name, $args)
     {
-        return pg_execute($this->connection, $name, $args);
+        return PgExceptionHelper::provideQueryException(function ($connection, $name, $args) {
+            return pg_execute($connection, $name, $args);
+        }, array($this->connection, $name, $args));
+    }
+
+    public function pgDeallocate($name)
+    {
+        PgExceptionHelper::provideQueryException(function ($connection, $query) {
+            return pg_query($connection, $query);
+        }, array($this->connection, "DEALLOCATE PREPARE \"{$name}\""));
+        unset($this->preparedStatements[$name]);
     }
 
     public function pgQuery($query)
     {
-        return pg_query($this->connection, $query);
+        return PgExceptionHelper::provideQueryException(function ($connection, $query) {
+            return pg_query($connection, $query);
+        }, array($this->connection, $query));
     }
 
     public function pgQueryParams($query, $params)
     {
-        return pg_query_params($this->connection, $query, $params);
+        return PgExceptionHelper::provideQueryException(function ($connection, $query, $params) {
+            return pg_query_params($connection, $query, $params);
+        }, array($this->connection, $query, $params));
+    }
+
+    public function getPreparedStatementName($query)
+    {
+        return md5($query . uniqid());
+    }
+
+    public function encoder()
+    {
+        if (!$this->encoder) {
+            $this->encoder = new ParamEncoder();
+            $this->injectDependencies($this->encoder);
+        }
+
+        return $this->encoder;
+    }
+
+    public function decoder()
+    {
+        if (!$this->decoder) {
+            $this->decoder = new ParamDecoder();
+            $this->injectDependencies($this->decoder);
+        }
+
+        return $this->decoder;
+    }
+
+    public function getConverterForType($type)
+    {
+        if (!isset($this->converters[$type])) {
+            throw new InvalidArgumentException(sprintf('Cannot find converter for type "%s"', $type));
+        }
+
+        if (!($this->converters[$type] instanceof InvalidArgumentException)) {
+            $this->converters[$type] = $this->createConverter($this->converters[$type]);
+        }
+
+        return $this->converters[$type];
     }
 
     protected function executeQuery($query, $types = array(), $params = array())
@@ -259,14 +339,15 @@ class Database
             $paramTypes[$typeIndex - 1] = $types[$typeIndex];
         }
 
-        return $this->pgQueryParams(
-            $query,
-            ParamsEncoder::encodeRow(
-                $paramTypes,
-                $params,
-                $this->connection
-            )
-        );
+//        return $this->pgQueryParams(
+//            $query,
+//            ParamsEncoder::encodeRow(
+//                $paramTypes,
+//                $params,
+//                $this->connection
+//            )
+//        );
+        return false;
     }
 
     protected function getSavepointName()
@@ -276,5 +357,49 @@ class Database
         } while (isset($this->savepointNames[$name]));
 
         return $name;
+    }
+
+    /**
+     * Creates new instance of data converter by specification
+     *
+     * @param string|array $specification The converter specification (class name, etc)
+     * @return ConverterInterface
+     * @throws InvalidArgumentException
+     */
+    protected function createConverter($specification)
+    {
+        if (!is_array($specification)) {
+            $specification = array($specification);
+        }
+
+        if (!isset($specification[0])) {
+            throw new InvalidArgumentException('Cannot find converter class name in specification');
+        }
+
+        if (!class_exists($specification[0])) {
+            throw new InvalidArgumentException(sprintf('Converter class %s is not found', $specification[0]));
+        }
+
+        $className = $specification[0];
+        $object = new $className();
+
+        if (!($object instanceof ConverterInterface)) {
+            throw new InvalidArgumentException('Converter class must be an instance of ConverterInterface');
+        }
+
+        $this->injectDependencies($object);
+
+        return $object;
+    }
+
+    protected function injectDependencies($object)
+    {
+        if ($object instanceof PgI\PgConnectionAwareInterface) {
+            $object->setPgConnection($this->connection);
+        }
+
+        if ($object instanceof DatabaseAwareInterface) {
+            $object->setDatabase($this);
+        }
     }
 }

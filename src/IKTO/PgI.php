@@ -2,8 +2,7 @@
 
 namespace IKTO;
 
-use IKTO\PgI\Database;
-use IKTO\PgI\ParamsEncoder;
+use IKTO\PgI\Database\Database;
 
 class PgI
 {
@@ -11,10 +10,10 @@ class PgI
     const TRANSACTION_ACTIVE        = 1;
     const TRANSACTION_ERROR         = 2;
 
-    const PARAM_BYTEA         = ParamsEncoder::BYTEA;
-    const PARAM_JSON          = ParamsEncoder::JSON;
-    const PARAM_TIMESTAMP     = ParamsEncoder::TIMESTAMP;
-    const PARAM_TIMESTAMPTZ   = ParamsEncoder::TIMESTAMPTZ;
+    const PARAM_BYTEA         = 'bytea';
+    const PARAM_JSON          = 'json';
+    const PARAM_TIMESTAMP     = 'timestamp';
+    const PARAM_TIMESTAMPTZ   = 'timestamptz';
 
     public static function connect($dsn, $user = null, $password = null)
     {
