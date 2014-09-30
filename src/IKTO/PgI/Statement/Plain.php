@@ -19,6 +19,9 @@ class Plain implements StatementInterface
     /* @var array */
     protected $paramTypes = array();
 
+    /* @var array */
+    protected $resultTypes = array();
+
     /* @var resource */
     protected $result = null;
 
@@ -31,12 +34,21 @@ class Plain implements StatementInterface
         $this->query = $query;
     }
 
-    public function bindParam($n, $value, $type = null)
+    public function bindValue($n, $value, $type = null)
     {
         $this->params[$n-1] = $value;
         if (null !== $type) {
             $this->paramTypes[$n-1] = $type;
         }
+    }
+
+    public function setResultType($field, $type)
+    {
+        if (is_int($field)) {
+            $field--;
+        }
+
+        $this->resultTypes[$field] = $type;
     }
 
     public function execute(array $params = array())
@@ -52,20 +64,18 @@ class Plain implements StatementInterface
         return false;
     }
 
-    public function fetchRowArray()
+    public function fetchRowArray(array $types = array())
     {
         $this->assertResultExists();
 
-        $row = pg_fetch_row($this->result);
-
-        // TODO: Decode results
+        $row = $this->fetchRow($this->result, $types);
 
         return $row;
     }
 
-    public function fetchRowAssoc()
+    public function fetchRowAssoc(array $types = array())
     {
-        $row = $this->fetchRowArray();
+        $row = $this->fetchRowArray($types);
 
         if (!$row) {
             return false;
@@ -76,8 +86,67 @@ class Plain implements StatementInterface
         for ($i = 0, $j = count($row); $i < $j; $i++) {
             $assoc[pg_field_name($this->result, $i)] = $row[$i];
         }
+        unset($row, $i, $j);
 
         return $assoc;
+    }
+
+    public function getColumnValues($column, $type = null)
+    {
+        $this->assertResultExists();
+
+        // Determine column number by the int number or string name
+        if (is_int($column)) {
+            $columnNumber = $column - 1;
+        } else {
+            $columnNumber = pg_field_num($this->result, $column);
+            if ($columnNumber < 0) {
+                throw new InvalidArgumentException(sprintf('Cannot resolve column with name %s', $column));
+            }
+        }
+
+        // Get column data
+        $rows = pg_fetch_all_columns($this->result, $columnNumber);
+
+        $types = array_merge($this->resultTypes, array($columnNumber => $type));
+
+        // Try user-defined result type first
+        $auto = false;
+        $type = isset($types[$columnNumber]) ? $types[$columnNumber] : null;
+        if (null === $type) {
+            $name = pg_field_name($this->result, $columnNumber);
+            $type = isset($types[$name]) ? $types[$name] : null;
+        }
+
+        // And then try to get type from result
+        if (!$type) {
+            $type = pg_field_type($this->result, $columnNumber);
+            $auto = true;
+        }
+
+        foreach ($rows as $key => $value) {
+            try {
+                $rows[$key] = $this->db->decoder()->decode($value, $type);
+            }
+            catch (InvalidArgumentException $ex) {
+                if (!$auto) { throw $ex; }
+            }
+        }
+
+        return $rows;
+    }
+
+    public function getAffectedRows()
+    {
+        $this->assertResultExists();
+
+        return $this->affectedRows;
+    }
+
+    public function seek($n)
+    {
+        $this->assertResultExists();
+        pg_result_seek($this->result, $n);
     }
 
     protected function assertResultExists()
@@ -106,5 +175,34 @@ class Plain implements StatementInterface
         }
 
         return $params;
+    }
+
+    protected function fetchRow($result, $userDefinedResultTypes = array())
+    {
+        $row = pg_fetch_row($result);
+
+        $types = array_merge($this->resultTypes, $userDefinedResultTypes);
+
+        foreach ($row as $key => $value) {
+            // Try user-defined result type first
+            $type = isset($types[$key]) ? $types[$key] : null;
+            if (null === $type) {
+                $name = pg_field_name($result, $key);
+                $type = isset($types[$name]) ? $types[$name] : null;
+            }
+
+            if ($type) {
+                $row[$key] = $this->db->decoder()->decode($value, $type);
+                continue;
+            }
+
+            // Skip conversion if converter has not registered
+            try {
+                $row[$key] = $this->db->decoder()->decode($value, pg_field_type($result, $key));
+            }
+            catch (InvalidArgumentException $ex) { /* DO NOTHING */ }
+        }
+
+        return $row;
     }
 }

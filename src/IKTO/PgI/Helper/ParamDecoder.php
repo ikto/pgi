@@ -24,6 +24,19 @@ class ParamDecoder implements DatabaseAwareInterface
      */
     public function decode($value, $type = null)
     {
+        /* Skip conversion if given value is [SQL] null */
+        if (null === $value) {
+            return null;
+        }
+
+        /* Decode array as array of elements */
+        if ('_' == $type[0]) {
+            $converter = $this->db->getConverterForType(DefaultTypes::ARRAY_OF);
+
+            return $converter->decode($value, substr($type, 1));
+        }
+
+        /* Decode regular type */
         $converter = $this->db->getConverterForType($type);
 
         return $converter->decode($value);

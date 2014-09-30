@@ -14,5 +14,8 @@
     },
     "autoload" : {
         "psr-0" : { "" : "src/" }
+    },
+    "require-dev": {
+        "phpunit/phpunit": "@stable"
     }
 }

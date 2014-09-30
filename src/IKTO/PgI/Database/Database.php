@@ -6,15 +6,17 @@ use IKTO\PgI;
 use IKTO\PgI\Exception\ConnectionException;
 use IKTO\PgI\Exception\DuplicationException;
 use IKTO\PgI\Exception\InvalidArgumentException;
+use IKTO\PgI\Exception\QueryException;
+use IKTO\PgI\Exception\TransactionException;
 use IKTO\PgI\Statement\Prepared;
 use IKTO\PgI\Statement\Plain;
-use IKTO\PgI\ResultDecoder;
 use IKTO\PgI\Helper\PgExceptionHelper;
 use IKTO\PgI\Helper\ParamEncoder;
 use IKTO\PgI\Helper\ParamDecoder;
+use IKTO\PgI\Helper\DefaultTypes;
 use IKTO\PgI\Converter\ConverterInterface;
 
-class Database implements DatabaseInterface
+class Database implements DatabaseInterface, ConvenientDatabaseInterface
 {
     protected $connection;
     protected $preparedStatements = array();
@@ -25,6 +27,7 @@ class Database implements DatabaseInterface
     /* @var ParamEncoder */
     private $encoder;
 
+    /* @var ParamDecoder */
     private $decoder;
 
     public function __construct($dsn, $user = null, $password = null)
@@ -46,6 +49,8 @@ class Database implements DatabaseInterface
         if (false === $this->connection) {
             throw new ConnectionException($connectionError ?: 'Unable to connect to PostgreSQL server');
         }
+
+        $this->registerDefaultConverters();
     }
 
     public function __destruct()
@@ -84,117 +89,108 @@ class Database implements DatabaseInterface
 
     public function doQuery($query, $types = array(), $params = array())
     {
-        $res = $this->executeQuery($query, $types, $params);
-        if ($res) {
-            return pg_affected_rows($res);
-        } else {
-            return false;
+        $query = $this->create($query);
+        foreach ($params as $key => $value) {
+            $query->bindValue($key+1, $value, isset($types[$key]) ? $types[$key] : null);
         }
+        $query->execute();
+
+        return $query->getAffectedRows();
     }
 
     public function selectRowArray($query, $types = array(), $params = array())
     {
-        $res = $this->executeQuery($query, $types, $params);
-        if ($res) {
-            $row = pg_fetch_row($res);
-
-            if ($row) {
-                $row = ResultDecoder::decodeRow($res, $row);
-                pg_free_result($res);
-
-                return $row;
-            } else {
-                pg_free_result($res);
-
-                return null;
-            }
-        } else {
-            return false;
+        $query = $this->create($query);
+        foreach ($params as $key => $value) {
+            $query->bindValue($key+1, $value, isset($types[$key]) ? $types[$key] : null);
         }
+        $query->execute();
+
+        return $query->fetchRowArray();
     }
 
     public function selectRowAssoc($query, $types = array(), $params = array())
     {
-        $res = $this->executeQuery($query, $types, $params);
-        if ($res) {
-            $row = pg_fetch_row($res);
-
-            if ($row) {
-                $row = ResultDecoder::decodeRow($res, $row);
-                $assoc = array();
-                for ($i = 0; $i < count($row); $i++) {
-                    $assoc[pg_field_name($res, $i)] = $row[$i];
-                }
-                pg_free_result($res);
-
-                return $assoc;
-            } else {
-                pg_free_result($res);
-
-                return null;
-            }
-        } else {
-            return false;
+        $query = $this->create($query);
+        foreach ($params as $key => $value) {
+            $query->bindValue($key+1, $value, isset($types[$key]) ? $types[$key] : null);
         }
+        $query->execute();
+
+        return $query->fetchRowAssoc();
     }
 
     public function selectColArray($query, $types = array(), $params = array())
     {
-        $res = $this->executeQuery($query, $types, $params);
-        if ($res) {
-            $rows = pg_fetch_all_columns($res, 0);
-
-            if (is_array($rows)) {
-                $rows = array_map(function ($value) use ($res) {
-                    $r = ResultDecoder::decodeRow($res, array($value));
-                    return $r[0];
-                }, $rows);
-                pg_free_result($res);
-
-                return $rows;
-            } else {
-                pg_free_result($res);
-
-                return null;
-            }
-        } else {
-            return false;
+        $query = $this->create($query);
+        foreach ($params as $key => $value) {
+            $query->bindValue($key+1, $value, isset($types[$key]) ? $types[$key] : null);
         }
+        $query->execute();
+
+        return $query->getColumnValues(1);
     }
 
     public function beginWork()
     {
         $status = pg_transaction_status($this->connection);
-        if (($status == PGSQL_TRANSACTION_INTRANS) || ($status == PGSQL_TRANSACTION_INERROR)) {
-            $name = $this->getSavepointName();
-            if ($this->pgQuery('SAVEPOINT "' . $name . '"')) {
-                array_push($this->transactionStack, $name);
-                $this->savepointNames[$name] = 1;
-            } else {
-                throw new \RuntimeException("Cannot create savepoint $name");
-            }
-        } else {
-            if (!$this->pgQuery('BEGIN')) {
-                throw new \RuntimeException("Cannot start the transaction");
-            }
-        }
 
+        switch ($status) {
+            case PGSQL_TRANSACTION_INTRANS:
+            case PGSQL_TRANSACTION_INERROR:
+                $name = $this->getSavepointName();
+                try {
+                    $this->pgQuery('SAVEPOINT "' . $name . '"');
+                }
+                catch (QueryException $ex) {
+                    throw new TransactionException(
+                        sprintf('Cannot create savepoint %s', $name),
+                        null, $ex
+                    );
+                }
+                $this->savepointNames[$name] = 1;
+
+                break;
+            default:
+                try {
+                    $this->pgQuery('BEGIN');
+                }
+                catch (QueryException $ex) {
+                    throw new TransactionException(
+                        'Cannot start the transaction',
+                        null, $ex
+                    );
+                }
+
+                break;
+        }
     }
 
     public function rollback()
     {
         if (count($this->transactionStack)) {
             $name = array_pop($this->transactionStack);
-            if ($this->pgQuery('ROLLBACK TO "' . $name . '"')) {
-                if ($this->pgQuery('RELEASE SAVEPOINT "' . $name . '"')) {
-                    unset($this->savepointNames[$name]);
-                }
-            } else {
-                throw new \RuntimeException("Cannot rollback to savepoint $name");
+            try {
+                $this->pgQuery('ROLLBACK TO "' . $name . '"');
+                $this->pgQuery('RELEASE SAVEPOINT "' . $name . '"');
             }
+            catch (QueryException $ex) {
+                throw new TransactionException(
+                    sprintf('Cannot rollback to savepoint %s', $name),
+                    null, $ex
+                );
+            }
+
+            unset($this->savepointNames[$name]);
         } else {
-            if (!$this->pgQuery('ROLLBACK')) {
-                throw new \RuntimeException('Cannot cancel transaction');
+            try {
+                $this->pgQuery('ROLLBACK');
+            }
+            catch (QueryException $ex) {
+                throw new TransactionException(
+                    'Cannot cancel transaction',
+                    null, $ex
+                );
             }
         }
     }
@@ -203,14 +199,26 @@ class Database implements DatabaseInterface
     {
         if (count($this->transactionStack)) {
             $name = array_pop($this->transactionStack);
-            if ($this->pgQuery('RELEASE SAVEPOINT "' . $name . '"')) {
-                unset($this->savepointNames[$name]);
-            } else {
-                throw new \RuntimeException("Cannot release savepoint $name");
+            try {
+                $this->pgQuery('RELEASE SAVEPOINT "' . $name . '"');
             }
+            catch (QueryException $ex) {
+                throw new TransactionException(
+                    sprintf('Cannot release savepoint %s', $name),
+                    null, $ex
+                );
+            }
+
+            unset($this->savepointNames[$name]);
         } else {
-            if (!$this->pgQuery('COMMIT')) {
-                throw new \RuntimeException('Cannot commit transaction');
+            try {
+                $this->pgQuery('COMMIT');
+            }
+            catch (QueryException $ex) {
+                throw new TransactionException(
+                    'Cannot commit transaction',
+                    null, $ex
+                );
             }
         }
     }
@@ -232,22 +240,30 @@ class Database implements DatabaseInterface
 
     public function getSeqNextValue($sequence)
     {
-        $res = $this->executeQuery('SELECT NEXTVAL(\'' . $sequence . '\'::regclass)');
-        if (!$res) {
-            return false;
-        }
+        $res = $this->pgQueryParams('SELECT NEXTVAL($1::regclass)', array($sequence));
 
         $row = pg_fetch_row($res);
         if (!$row) {
-            pg_free_result($res);
-
-            return false;
+            throw new \InvalidArgumentException('SELECT NEXTVAL has not returned row.');
         }
 
-        $row = ResultDecoder::decodeRow($res, $row);
         pg_free_result($res);
 
-        return $row[0];
+        return intval($row[0]);
+    }
+
+    public function getSeqCurrentValue($sequence)
+    {
+        $res = $this->pgQueryParams('SELECT CURRVAL($1::regclass)', array($sequence));
+
+        $row = pg_fetch_row($res);
+        if (!$row) {
+            throw new \InvalidArgumentException('SELECT CURRVAL has not returned row.');
+        }
+
+        pg_free_result($res);
+
+        return intval($row[0]);
     }
 
     public function pgPrepare($name, $query)
@@ -323,31 +339,25 @@ class Database implements DatabaseInterface
             throw new InvalidArgumentException(sprintf('Cannot find converter for type "%s"', $type));
         }
 
-        if (!($this->converters[$type] instanceof InvalidArgumentException)) {
+        if (!($this->converters[$type] instanceof ConverterInterface)) {
             $this->converters[$type] = $this->createConverter($this->converters[$type]);
         }
 
         return $this->converters[$type];
     }
 
-    protected function executeQuery($query, $types = array(), $params = array())
+    public function registerConverter($type, $converter)
     {
-        $typesIndex = array_keys($types);
-        sort($typesIndex, SORT_NUMERIC);
-        $paramTypes = array();
-        foreach ($typesIndex as $typeIndex) {
-            $paramTypes[$typeIndex - 1] = $types[$typeIndex];
+        if (isset($this->converters[$type])) {
+            throw new DuplicationException(sprintf('Converter for type %s is already registered', $type));
         }
 
-//        return $this->pgQueryParams(
-//            $query,
-//            ParamsEncoder::encodeRow(
-//                $paramTypes,
-//                $params,
-//                $this->connection
-//            )
-//        );
-        return false;
+        $this->converters[$type] = $converter;
+    }
+
+    public function unregisterConverter($type)
+    {
+        unset($this->converters[$type]);
     }
 
     protected function getSavepointName()
@@ -392,6 +402,11 @@ class Database implements DatabaseInterface
         return $object;
     }
 
+    /**
+     * Injects necessary dependencies into given object
+     *
+     * @param object $object
+     */
     protected function injectDependencies($object)
     {
         if ($object instanceof PgI\PgConnectionAwareInterface) {
@@ -401,5 +416,24 @@ class Database implements DatabaseInterface
         if ($object instanceof DatabaseAwareInterface) {
             $object->setDatabase($this);
         }
+    }
+
+    /**
+     * Registers default set of converters
+     */
+    protected function registerDefaultConverters()
+    {
+        $this->registerConverter(DefaultTypes::ARRAY_OF, array('IKTO\\PgI\\Converter\\PgArray'));
+        $this->registerConverter(DefaultTypes::BOOLEAN, array('IKTO\\PgI\\Converter\\PgBoolean'));
+        $this->registerConverter(DefaultTypes::BYTEA, array('IKTO\\PgI\\Converter\\PgBytea'));
+        $this->registerConverter(DefaultTypes::FLOAT, array('IKTO\\PgI\\Converter\\PgFloat'));
+        $this->registerConverter(DefaultTypes::DOUBLE, array('IKTO\\PgI\\Converter\\PgFloat'));
+        $this->registerConverter(DefaultTypes::SMALLINT, array('IKTO\\PgI\\Converter\\PgInteger'));
+        $this->registerConverter(DefaultTypes::INTEGER, array('IKTO\\PgI\\Converter\\PgInteger'));
+        $this->registerConverter(DefaultTypes::BIGINT, array('IKTO\\PgI\\Converter\\PgInteger'));
+        $this->registerConverter(DefaultTypes::NUMERIC, array('IKTO\\PgI\\Converter\\PgFloat'));
+        $this->registerConverter(DefaultTypes::JSON, array('IKTO\\PgI\\Converter\\PgJson'));
+        $this->registerConverter(DefaultTypes::TIMESTAMP_WITHOUT_TIMEZONE, array('IKTO\\PgI\\Converter\\PgTimestamp'));
+        $this->registerConverter(DefaultTypes::TIMESTAMP_WITH_TIMEZONE, array('IKTO\\PgI\\Converter\\PgTimestampWithTimezone'));
     }
 }

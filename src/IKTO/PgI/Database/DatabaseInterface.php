@@ -3,6 +3,7 @@
 namespace IKTO\PgI\Database;
 
 use IKTO\PgI\Converter\ConverterInterface;
+use IKTO\PgI\Exception\DuplicationException;
 use IKTO\PgI\Exception\InvalidArgumentException;
 use IKTO\PgI\Statement\StatementInterface;
 
@@ -85,4 +86,20 @@ interface DatabaseInterface
      * @throws InvalidArgumentException If converter is not registered
      */
     public function getConverterForType($type);
+
+    /**
+     * Registers converter for type
+     *
+     * @param string $type The type name
+     * @param string|array|ConverterInterface $converter The converter instance or class name
+     * @throws DuplicationException If converter for type is already registered
+     */
+    public function registerConverter($type, $converter);
+
+    /**
+     * Unregisters converter for type
+     *
+     * @param string $type The type name
+     */
+    public function unregisterConverter($type);
 }
