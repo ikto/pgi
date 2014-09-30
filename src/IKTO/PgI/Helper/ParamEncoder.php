@@ -24,6 +24,24 @@ class ParamEncoder implements DatabaseAwareInterface
      */
     public function encode($value, $type = null)
     {
+        /* Skip conversion if given value is [PHP] null */
+        if (null === $value) {
+            return null;
+        }
+
+        /* Try to guess value type */
+        if (null === $type) {
+            $type = $this->db->guessTypeByValue($value);
+        }
+
+        /* Encode array as postgres array */
+        if ('_' == substr($type, 0, 1)) {
+            $converter = $this->db->getConverterForType(DefaultTypes::ARRAY_OF);
+
+            return $converter->encode($value, substr($type, 1));
+        }
+
+        /* Encode regular type */
         $converter = $this->db->getConverterForType($type);
 
         return $converter->encode($value);

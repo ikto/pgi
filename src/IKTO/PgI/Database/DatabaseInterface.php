@@ -102,4 +102,12 @@ interface DatabaseInterface
      * @param string $type The type name
      */
     public function unregisterConverter($type);
+
+    /**
+     * Tries to guess value type
+     *
+     * @param mixed $value The value
+     * @return string The possible type
+     */
+    public function guessTypeByValue($value);
 }

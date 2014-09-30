@@ -8,6 +8,7 @@ use IKTO\PgI\Exception\DuplicationException;
 use IKTO\PgI\Exception\InvalidArgumentException;
 use IKTO\PgI\Exception\QueryException;
 use IKTO\PgI\Exception\TransactionException;
+use IKTO\PgI\Exception\MissingConverterException;
 use IKTO\PgI\Statement\Prepared;
 use IKTO\PgI\Statement\Plain;
 use IKTO\PgI\Helper\PgExceptionHelper;
@@ -15,6 +16,7 @@ use IKTO\PgI\Helper\ParamEncoder;
 use IKTO\PgI\Helper\ParamDecoder;
 use IKTO\PgI\Helper\DefaultTypes;
 use IKTO\PgI\Converter\ConverterInterface;
+use IKTO\PgI\Converter\EncoderGuesserInterface;
 
 class Database implements DatabaseInterface, ConvenientDatabaseInterface
 {
@@ -336,7 +338,7 @@ class Database implements DatabaseInterface, ConvenientDatabaseInterface
     public function getConverterForType($type)
     {
         if (!isset($this->converters[$type])) {
-            throw new InvalidArgumentException(sprintf('Cannot find converter for type "%s"', $type));
+            throw new MissingConverterException(sprintf('Cannot find converter for type "%s"', $type));
         }
 
         if (!($this->converters[$type] instanceof ConverterInterface)) {
@@ -358,6 +360,23 @@ class Database implements DatabaseInterface, ConvenientDatabaseInterface
     public function unregisterConverter($type)
     {
         unset($this->converters[$type]);
+    }
+
+    public function guessTypeByValue($value)
+    {
+        foreach ($this->converters as $type => $converter) {
+            if (!($this->converters[$type] instanceof ConverterInterface)) {
+                $this->converters[$type] = $this->createConverter($this->converters[$type]);
+            }
+
+            if ($this->converters[$type] instanceof EncoderGuesserInterface) {
+                if ($this->converters[$type]->canEncode($value)) {
+                    return $type;
+                }
+            }
+        }
+
+        return null;
     }
 
     protected function getSavepointName()

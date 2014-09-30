@@ -4,6 +4,7 @@ namespace IKTO\PgI\Statement;
 
 use IKTO\PgI\Database\DatabaseInterface;
 use IKTO\PgI\Exception\InvalidArgumentException;
+use IKTO\PgI\Exception\MissingConverterException;
 
 class Plain implements StatementInterface
 {
@@ -128,7 +129,7 @@ class Plain implements StatementInterface
             try {
                 $rows[$key] = $this->db->decoder()->decode($value, $type);
             }
-            catch (InvalidArgumentException $ex) {
+            catch (MissingConverterException $ex) {
                 if (!$auto) { throw $ex; }
             }
         }
@@ -181,6 +182,10 @@ class Plain implements StatementInterface
     {
         $row = pg_fetch_row($result);
 
+        if (!$row) {
+            return false;
+        }
+
         $types = array_merge($this->resultTypes, $userDefinedResultTypes);
 
         foreach ($row as $key => $value) {
@@ -200,7 +205,7 @@ class Plain implements StatementInterface
             try {
                 $row[$key] = $this->db->decoder()->decode($value, pg_field_type($result, $key));
             }
-            catch (InvalidArgumentException $ex) { /* DO NOTHING */ }
+            catch (MissingConverterException $ex) { /* DO NOTHING */ }
         }
 
         return $row;
