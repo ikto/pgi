@@ -5,15 +5,29 @@ namespace IKTO\PgI\Converter;
 use IKTO\PgI\Database\DatabaseAwareInterface;
 use IKTO\PgI\Database\DatabaseInterface;
 use IKTO\PgI\Exception\InvalidArgumentException;
+use IKTO\PgI\Exception\MissingConverterException;
+use IKTO\PgI\PgConnectionAwareInterface;
 
-class PgArray implements ConverterInterface, DatabaseAwareInterface, EncoderGuesserInterface
+class PgArray implements
+    ConverterInterface,
+    DatabaseAwareInterface,
+    EncoderGuesserInterface,
+    PgConnectionAwareInterface
 {
     /* @var DatabaseInterface */
     private $db;
 
+    /* @var resource */
+    private $pgConnection;
+
     public function setDatabase(DatabaseInterface $db)
     {
         $this->db = $db;
+    }
+
+    public function setPgConnection($pgConnection)
+    {
+        $this->pgConnection = $pgConnection;
     }
 
     public function encode($value, $type = null)
@@ -23,15 +37,23 @@ class PgArray implements ConverterInterface, DatabaseAwareInterface, EncoderGues
         }
 
         $result = array();
-        $converter = $this->db->getConverterForType($type);
+        try {
+            $converter = $this->db->getConverterForType($type);
+        }
+        catch (MissingConverterException $ex) {
+            if (null != $type) { throw $ex; }
+        }
         foreach ($value as $element) {
             if (is_array($element)) {
-                $result[] = $this->encode($element);
+                $result[] = $this->encode($element, $type);
             } else {
-                $element = $converter->encode($element);
+                /* Perform element conversion if we specified types */
+                if (isset($converter) && ($converter instanceof ConverterInterface)) {
+                    $element = $converter->encode($element);
+                }
                 $element = str_replace('"', '\\"', $element); // Escape double-quotes.
-//                $element = pg_escape_string()
-                $result[] = $element;
+                $element = pg_escape_string($this->pgConnection, $element);
+                $result[] = '"' . $element . '"';
             }
         }
 
