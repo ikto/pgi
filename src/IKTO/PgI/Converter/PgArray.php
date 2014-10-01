@@ -58,6 +58,7 @@ class PgArray implements
                     $element = $converter->encode($element);
                 }
 
+                $element = str_replace('\\', '\\\\', $element); // Escape backslashes
                 $element = str_replace('"', '\\"', $element); // Escape double-quotes.
                 $element = pg_escape_string($this->pgConnection, $element);
                 $result[] = '"' . $element . '"';
