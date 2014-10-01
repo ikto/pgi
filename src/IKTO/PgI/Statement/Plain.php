@@ -208,9 +208,18 @@ class Plain implements StatementInterface
 
             // Skip conversion if converter has not registered
             try {
-                $row[$key] = $this->db->decoder()->decode($value, pg_field_type($result, $key));
+                $type = pg_field_type($result, $key);
+                $row[$key] = $this->db->decoder()->decode($value, $type);
             }
-            catch (MissingConverterException $ex) { /* DO NOTHING */ }
+            catch (MissingConverterException $ex) {
+                // If $value was autodetected array
+                if ('_' == substr($type, 0, 1)) {
+                    try {
+                        $row[$key] = $this->db->decoder()->decode($value, '_');
+                    }
+                    catch (MissingConverterException $ex) { /* DO NOTHING */ }
+                }
+            }
         }
 
         return $row;

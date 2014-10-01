@@ -98,11 +98,21 @@ class PgArray implements
 
         $value = str_getcsv($value);
 
-        $converter = $this->db->getConverterForType($type);
+        $remapElements = function ($e) {
+            return ($e === 'NULL') ? null : $e;
+        };
 
-        return array_map(function ($e) use ($converter) {
-            return ($e === 'NULL') ? null : $converter->decode($e);
-        }, $value);
+        try {
+            $converter = $this->db->getConverterForType($type);
+            $remapElements = function ($e) use ($converter) {
+                return ($e === 'NULL') ? null : $converter->decode($e);
+            };
+        }
+        catch (MissingConverterException $ex) {
+            if (null != $type) { throw $ex; }
+        }
+
+        return array_map($remapElements, $value);
     }
 
     public function canEncode($value)
