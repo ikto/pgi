@@ -47,10 +47,17 @@ class PgArray implements
             if (is_array($element)) {
                 $result[] = $this->encode($element, $type);
             } else {
+                /* Bypass php null as SQL NULL */
+                if (null === $element) {
+                    $result[] = 'NULL';
+                    continue;
+                }
+
                 /* Perform element conversion if we specified types */
                 if (isset($converter) && ($converter instanceof ConverterInterface)) {
                     $element = $converter->encode($element);
                 }
+
                 $element = str_replace('"', '\\"', $element); // Escape double-quotes.
                 $element = pg_escape_string($this->pgConnection, $element);
                 $result[] = '"' . $element . '"';
