@@ -169,10 +169,15 @@ class Plain implements StatementInterface
 
         // Encoding input arguments
         foreach ($params as $key => $value) {
-            $params[$key] = $this
-                ->db
-                ->encoder()
-                ->encode($value, isset($this->paramTypes[$key]) ? $this->paramTypes[$key] : null);
+            try {
+                $params[$key] = $this
+                    ->db
+                    ->encoder()
+                    ->encode($value, isset($this->paramTypes[$key]) ? $this->paramTypes[$key] : null);
+            }
+            catch (MissingConverterException $ex) {
+                if (isset($this->paramTypes[$key])) { throw $ex; }
+            }
         }
 
         return $params;
