@@ -4,7 +4,7 @@
 
 -- Dumped from database version 9.2.7
 -- Dumped by pg_dump version 9.2.7
--- Started on 2014-10-02 00:08:41 EEST
+-- Started on 2014-10-02 17:47:48 EEST
 
 SET statement_timeout = 0;
 SET client_encoding = 'UTF8';
@@ -51,7 +51,13 @@ CREATE TABLE data_types (
     f_json json,
     f_real real,
     f_a_smallint smallint[],
-    f_a_varchar character varying[]
+    f_a_varchar character varying[],
+    f_a_boolean boolean[],
+    f_a_bytea bytea[],
+    f_a_real real[],
+    f_a_timestamp timestamp without time zone[],
+    f_a_timestamptz timestamp with time zone[],
+    f_a_json json[]
 );
 
 
@@ -94,7 +100,7 @@ ALTER TABLE ONLY data_types
     ADD CONSTRAINT data_types_pkey PRIMARY KEY (id);
 
 
--- Completed on 2014-10-02 00:08:41 EEST
+-- Completed on 2014-10-02 17:47:48 EEST
 
 --
 -- PostgreSQL database dump complete
