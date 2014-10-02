@@ -7,6 +7,9 @@ use IKTO\PgI\Database\Database;
 class DataConversionTest extends \PHPUnit_Framework_TestCase
 {
     /* @var Database */
+    private static $dbs;
+
+    /* @var Database */
     private $db;
 
     public static function setUpBeforeClass()
@@ -18,20 +21,12 @@ class DataConversionTest extends \PHPUnit_Framework_TestCase
         );
         $db->doQuery('TRUNCATE TABLE "data_types"');
         $db->doQuery('SELECT SETVAL($1::regclass, 1, false)', array(), array('data_types_id_seq'));
+        static::$dbs = $db;
     }
 
     public function setUp()
     {
-        $this->db = new Database(
-            $GLOBALS['test_db_dsn'],
-            $GLOBALS['test_db_user'],
-            $GLOBALS['test_db_pass']
-        );
-    }
-
-    public function tearDown()
-    {
-        $this->db = null;
+        $this->db = static::$dbs;
     }
 
     /**
@@ -304,6 +299,205 @@ class DataConversionTest extends \PHPUnit_Framework_TestCase
             array($this->getRandomArrayOfElements(1, $callback, 2)),
             array($this->getRandomArrayOfElements(1, $callback, 2)),
             array(null),
+        );
+    }
+
+    /**
+     * @dataProvider arrayOfBooleanProvider
+     * @param array $testArray
+     */
+    public function testArrayOfBoolean($testArray)
+    {
+        $id = $this->getNewId();
+
+        $this->db->doQuery('INSERT INTO "data_types" ("id", "f_a_boolean") VALUES ($1, $2)', array(1=>'_bool'), array($id, $testArray));
+
+        $row = $this->db->selectRowAssoc('SELECT * FROM "data_types" WHERE "id" = $1', array(), array($id));
+
+        $this->assertEquals($testArray, $row['f_a_boolean']);
+    }
+
+    public function arrayOfBooleanProvider()
+    {
+        $callback = function () {
+            if (rand(0,2) > 1) {
+                return null;
+            } elseif (rand(0,2) > 0) {
+                return true;
+            }
+
+            return false;
+        };
+
+        return array(
+            array(array(false)),
+            array(array(true)),
+            array(array(null)),
+            array(array(null, null)),
+            array(array(null, false)),
+            array($this->getRandomArrayOfElements(0, $callback)),
+            array($this->getRandomArrayOfElements(0, $callback)),
+            array($this->getRandomArrayOfElements(0, $callback)),
+            array($this->getRandomArrayOfElements(1, $callback)),
+            array($this->getRandomArrayOfElements(2, $callback)),
+            array($this->getRandomArrayOfElements(3, $callback)),
+            array(null),
+        );
+    }
+
+    /**
+     * @dataProvider arrayOfByteaProvider
+     * @param array $testArray
+     */
+    public function testArrayOfBytea($testArray)
+    {
+        $id = $this->getNewId();
+
+        $this->db->doQuery('INSERT INTO "data_types" ("id", "f_a_bytea") VALUES ($1, $2)', array(1=>'_bytea'), array($id, $testArray));
+
+        $row = $this->db->selectRowAssoc('SELECT * FROM "data_types" WHERE "id" = $1', array(), array($id));
+
+        $this->assertEquals($testArray, $row['f_a_bytea']);
+    }
+
+    public function arrayOfByteaProvider()
+    {
+        $t = $this;
+        $callback = function () use ($t) {
+            if (rand(0,1) > 0) {
+                return null;
+            }
+            return $t->callPrivate('getRandomByteaData', array(rand(5,30)));
+        };
+
+        return array(
+            array(array(null)),
+            array($this->getRandomArrayOfElements(0, $callback)),
+            array($this->getRandomArrayOfElements(0, $callback)),
+            array($this->getRandomArrayOfElements(1, $callback)),
+        );
+    }
+
+    /**
+     * @dataProvider arrayOfRealProvider
+     * @param array $testArray
+     */
+    public function testArrayOfReal($testArray)
+    {
+        $id = $this->getNewId();
+
+        $this->db->doQuery('INSERT INTO "data_types" ("id", "f_a_real") VALUES ($1, $2)', array(), array($id, $testArray));
+
+        $row = $this->db->selectRowAssoc('SELECT * FROM "data_types" WHERE "id" = $1', array(), array($id));
+
+        $this->assertEquals($testArray, $row['f_a_real']);
+    }
+
+    public function arrayOfRealProvider()
+    {
+        $callback = function () {
+            if (rand(0,1) > 0) {
+                return null;
+            }
+            return rand(-50, 50) / 10;
+        };
+
+        return array(
+            array(array(0)),
+            array(array(1.5)),
+            array(array(null)),
+            array(array(null, null)),
+            array(array(null, 0.6, 0)),
+            array($this->getRandomArrayOfElements(0, $callback)),
+            array($this->getRandomArrayOfElements(0, $callback)),
+            array($this->getRandomArrayOfElements(0, $callback)),
+            array($this->getRandomArrayOfElements(1, $callback)),
+            array($this->getRandomArrayOfElements(2, $callback)),
+            array($this->getRandomArrayOfElements(3, $callback)),
+            array(null),
+        );
+    }
+
+    /**
+     * @dataProvider arrayOfTimestampProvider
+     * @param array $tArray
+     * @param array $tzArray
+     */
+    public function testArrayOfTimestamp($tArray, $tzArray)
+    {
+        $id = $this->getNewId();
+
+        $this->db->doQuery('INSERT INTO "data_types" ("id", "f_a_timestamp", "f_a_timestamptz") VALUES ($1, $2, $3)', array(1=>'_timestamp',2=>'_timestamptz'), array($id, $tArray, $tzArray));
+
+        $row = $this->db->selectRowAssoc('SELECT * FROM "data_types" WHERE "id" = $1', array(), array($id));
+
+        $this->assertEquals($tArray, $row['f_a_timestamp']);
+        $this->assertEquals($tzArray, $row['f_a_timestamptz']);
+    }
+
+    public function arrayOfTimestampProvider()
+    {
+        $timestamps = array();
+        for ($i = 0; $i < 10; $i++) {
+            $timestamps += $this->timestampProvider();
+        }
+
+        $index1 = 0;
+        $index2 = 0;
+
+        $callback1 = function () use ($timestamps, &$index1) {
+            if (!isset($timestamps[$index1])) {
+                $index1 = 0;
+            }
+            return $timestamps[$index1++][0];
+        };
+        $callback2 = function () use ($timestamps, &$index2) {
+            if (!isset($timestamps[$index2])) {
+                $index2 = 0;
+            }
+            return $timestamps[$index2++][1];
+        };
+
+        return array(
+            array(null, null),
+            array(array(null), array(null)),
+            array($this->getRandomArrayOfElements(0, $callback1, 2), $this->getRandomArrayOfElements(0, $callback2, 2)),
+            array($this->getRandomArrayOfElements(0, $callback1, 3), $this->getRandomArrayOfElements(0, $callback2, 3)),
+            array($this->getRandomArrayOfElements(1, $callback1, 3), $this->getRandomArrayOfElements(1, $callback2, 3)),
+        );
+    }
+
+    /**
+     * @dataProvider arrayOfJsonProvider
+     * @param array $testArray
+     */
+    public function testArrayOfJson($testArray)
+    {
+        $id = $this->getNewId();
+
+        $this->db->doQuery('INSERT INTO "data_types" ("id", "f_a_json") VALUES ($1, $2)', array(1=>'_json'), array($id, $testArray));
+
+        $row = $this->db->selectRowAssoc('SELECT * FROM "data_types" WHERE "id" = $1', array(), array($id));
+
+        $this->assertEquals($testArray, $row['f_a_json']);
+    }
+
+    public function arrayOfJsonProvider()
+    {
+        $t = $this;
+        $callback = function () use ($t) {
+            if (rand(0,1) > 0) {
+                return null;
+            }
+            /* FIXME: 'array of JSON' encoder cannot recognize JSON and array */
+            return json_encode($t->callPrivate('getRandomJsonArray', array(0,0)));
+        };
+
+        return array(
+            array(array(null)),
+            array($this->getRandomArrayOfElements(0, $callback)),
+            array($this->getRandomArrayOfElements(0, $callback)),
+            array($this->getRandomArrayOfElements(1, $callback)),
         );
     }
 

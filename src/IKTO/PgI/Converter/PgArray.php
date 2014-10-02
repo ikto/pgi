@@ -152,13 +152,14 @@ class PgArray implements
                     break;
                 case '}':
                     // Array completed
+                    $wasEmptyElement = (is_string($currentItem) && (strlen($currentItem) <= 0));
                     if (!$wasNested && !$wasQuoted && ($currentItem == 'NULL')) {
                         $currentItem = null;
                     }
-                    if (!$wasNested && ($subConverter instanceof ConverterInterface)) {
+                    if (!$wasNested && (null !== $currentItem) && ($subConverter instanceof ConverterInterface)) {
                         $currentItem = $subConverter->decode($currentItem);
                     }
-                    if ($wasNested || (count($result) > 0) || (strlen($currentItem) > 0)) {
+                    if ($wasNested || (count($result) > 0) || !$wasEmptyElement) {
                         $result[] = $currentItem;
                     }
 
@@ -179,7 +180,7 @@ class PgArray implements
                     if (!$wasNested && !$wasQuoted && ($currentItem == 'NULL')) {
                         $currentItem = null;
                     }
-                    if (!$wasNested && ($subConverter instanceof ConverterInterface)) {
+                    if (!$wasNested && (null !== $currentItem) && ($subConverter instanceof ConverterInterface)) {
                         $currentItem = $subConverter->decode($currentItem);
                     }
                     $result[] = $currentItem;
