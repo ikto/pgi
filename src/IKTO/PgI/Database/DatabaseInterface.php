@@ -64,6 +64,24 @@ interface DatabaseInterface
     public function getPreparedStatementName($query);
 
     /**
+     * Starts the transaction
+     * Creates savepoint if transaction already open
+     */
+    public function beginWork();
+
+    /**
+     * Cancels the transaction
+     * If we have savepoint created, rollbacks to it
+     */
+    public function rollback();
+
+    /**
+     * Commits the transaction
+     * If we have savepoint created, releases it
+     */
+    public function commit();
+
+    /**
      * @return int|bool
      */
     public function getTransactionStatus();
