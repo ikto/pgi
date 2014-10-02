@@ -252,10 +252,18 @@ class DataConversionTest extends \PHPUnit_Framework_TestCase
     public function arrayOfSmallintProvider()
     {
         $callback = function () {
+            if (rand(0,1) > 0) {
+                return null;
+            }
             return rand(-5, 5);
         };
 
         return array(
+            array(array(0)),
+            array(array(1)),
+            array(array(null)),
+            array(array(null, null)),
+            array(array(null, 0)),
             array($this->getRandomArrayOfElements(0, $callback)),
             array($this->getRandomArrayOfElements(0, $callback)),
             array($this->getRandomArrayOfElements(0, $callback)),
@@ -289,7 +297,7 @@ class DataConversionTest extends \PHPUnit_Framework_TestCase
         };
 
         return array(
-            array(array('т р', 'тр з \\', 'тр\\', 'тр_', 'тр"', 'тр\'', 'тр \'')),
+            array(array('т р', null, 'тр з \\', 'тр\\', 'тр_', 'тр"', 'тр\'', 'тр \'')),
             array($this->getRandomArrayOfElements(0, $callback, 2)),
             array($this->getRandomArrayOfElements(0, $callback, 2)),
             array($this->getRandomArrayOfElements(0, $callback, 2)),

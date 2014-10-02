@@ -158,7 +158,7 @@ class PgArray implements
                     if (!$wasNested && ($subConverter instanceof ConverterInterface)) {
                         $currentItem = $subConverter->decode($currentItem);
                     }
-                    if ($wasNested || (count($result) > 0) || !empty($currentItem)) {
+                    if ($wasNested || (count($result) > 0) || (strlen($currentItem) > 0)) {
                         $result[] = $currentItem;
                     }
 
