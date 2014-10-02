@@ -262,6 +262,7 @@ class DataConversionTest extends \PHPUnit_Framework_TestCase
             array($this->getRandomArrayOfElements(1, $callback)),
             array($this->getRandomArrayOfElements(2, $callback)),
             array($this->getRandomArrayOfElements(3, $callback)),
+            array(null),
         );
     }
 
@@ -288,11 +289,13 @@ class DataConversionTest extends \PHPUnit_Framework_TestCase
         };
 
         return array(
-            array($this->getRandomArrayOfElements(0, $callback)),
-            array($this->getRandomArrayOfElements(0, $callback)),
-            array($this->getRandomArrayOfElements(0, $callback)),
-            array($this->getRandomArrayOfElements(1, $callback)),
-            array($this->getRandomArrayOfElements(1, $callback)),
+            array(array('т р', 'тр з \\', 'тр\\', 'тр_', 'тр"', 'тр\'', 'тр \'')),
+            array($this->getRandomArrayOfElements(0, $callback, 2)),
+            array($this->getRandomArrayOfElements(0, $callback, 2)),
+            array($this->getRandomArrayOfElements(0, $callback, 2)),
+            array($this->getRandomArrayOfElements(1, $callback, 2)),
+            array($this->getRandomArrayOfElements(1, $callback, 2)),
+            array(null),
         );
     }
 

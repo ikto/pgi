@@ -6,28 +6,20 @@ use IKTO\PgI\Database\DatabaseAwareInterface;
 use IKTO\PgI\Database\DatabaseInterface;
 use IKTO\PgI\Exception\InvalidArgumentException;
 use IKTO\PgI\Exception\MissingConverterException;
-use IKTO\PgI\PgConnectionAwareInterface;
 
 class PgArray implements
     ConverterInterface,
     DatabaseAwareInterface,
-    EncoderGuesserInterface,
-    PgConnectionAwareInterface
+    EncoderGuesserInterface
 {
+    const ENCODING = 'UTF-8';
+
     /* @var DatabaseInterface */
     private $db;
-
-    /* @var resource */
-    private $pgConnection;
 
     public function setDatabase(DatabaseInterface $db)
     {
         $this->db = $db;
-    }
-
-    public function setPgConnection($pgConnection)
-    {
-        $this->pgConnection = $pgConnection;
     }
 
     public function encode($value, $type = null)
@@ -60,7 +52,6 @@ class PgArray implements
 
                 $element = str_replace('\\', '\\\\', $element); // Escape backslashes
                 $element = str_replace('"', '\\"', $element); // Escape double-quotes.
-                $element = pg_escape_string($this->pgConnection, $element);
                 $result[] = '"' . $element . '"';
             }
         }
@@ -74,50 +65,133 @@ class PgArray implements
             throw new InvalidArgumentException(sprintf('Invalid array data: %s', $value));
         }
 
-        // Removes heading '{' and tailing '}'
-        $value = substr($value, 1, -1);
-
-        // Calculate array nesting level
-        $nestingLevel = 0;
-        while (substr($value, $nestingLevel, 1) == '{') {
-            $nestingLevel++;
-        }
-
-        // Process nested array
-        if ($nestingLevel > 0) {
-            $t = substr($value, $nestingLevel, -$nestingLevel);
-            $t = explode(str_repeat('}', $nestingLevel) . ',' . str_repeat('{', $nestingLevel), $t);
-            $t = array_map(function ($e) use ($nestingLevel) {
-                return str_repeat('{', $nestingLevel) . $e . str_repeat('}', $nestingLevel);
-            }, $t);
-            foreach ($t as $key => $value) {
-                $t[$key] = $this->decode($value, $type);
-            }
-
-            return $t;
-        }
-
-        $value = str_getcsv($value);
-
-        $remapElements = function ($e) {
-            return ($e === 'NULL') ? null : $e;
-        };
-
+        $converter = null;
         try {
             $converter = $this->db->getConverterForType($type);
-            $remapElements = function ($e) use ($converter) {
-                return ($e === 'NULL') ? null : $converter->decode($e);
-            };
         }
         catch (MissingConverterException $ex) {
             if (null != $type) { throw $ex; }
         }
 
-        return array_map($remapElements, $value);
+        $index = 0;
+
+        return $this->parsePgArray($value, $index, null, $converter);
     }
 
     public function canEncode($value)
     {
         return is_array($value);
+    }
+
+    /**
+     * @param string $src
+     * @param integer $index
+     * @param integer $length
+     * @param ConverterInterface $subConverter
+     * @return array
+     */
+    private function parsePgArray($src, &$index, $length = null, $subConverter = null)
+    {
+        if (null === $length) {
+            $length = mb_strlen($src, static::ENCODING);
+        }
+
+        $result = null;
+
+        $isQuoted = false;
+        $wasQuoted = false;
+        $isEscaping = false;
+        $wasNested = false;
+        $currentItem = '';
+        for (; $index < $length; $index++) {
+            $currentChar = mb_substr($src, $index, 1, static::ENCODING);
+
+            // Checks if valid array string
+            if (!is_array($result)) {
+                if ('{' == $currentChar) {
+                    $result = array();
+                    continue;
+                }
+
+                throw new InvalidArgumentException(sprintf(
+                    'Failed to parse array: expected "%s", but "%s" found',
+                    '{', $currentChar
+                ));
+            }
+
+            // If char is escaped, just bypass it
+            if ($isEscaping) {
+                $currentItem .= $currentChar;
+                $isEscaping = false;
+                continue;
+            }
+
+            // If string is quoted, parse its internal structure
+            if ($isQuoted) {
+                switch ($currentChar) {
+                    case '\\':
+                        $isEscaping = true;
+                        break;
+                    case '"':
+                        $isQuoted = false;
+                        $wasQuoted = true;
+                        break;
+                    default:
+                        $currentItem .= $currentChar;
+                        break;
+                }
+
+                continue;
+            }
+
+            switch ($currentChar) {
+                case '{':
+                    // Nested array
+                    $currentItem = $this->parsePgArray($src, $index, $length, $subConverter);
+                    $wasNested = true;
+                    break;
+                case '}':
+                    // Array completed
+                    if (!$wasNested && !$wasQuoted && ($currentItem == 'NULL')) {
+                        $currentItem = null;
+                    }
+                    if (!$wasNested && ($subConverter instanceof ConverterInterface)) {
+                        $currentItem = $subConverter->decode($currentItem);
+                    }
+                    if ($wasNested || (count($result) > 0) || !empty($currentItem)) {
+                        $result[] = $currentItem;
+                    }
+
+                    return $result;
+                    break;
+                case '"':
+                    // We can have only one quotation
+                    if ($wasQuoted) {
+                        throw new InvalidArgumentException(
+                            'Unable to parse array: multiple quotations detected'
+                        );
+                    }
+
+                    $isQuoted = true;
+                    break;
+                case ',':
+                    // Going to next item
+                    if (!$wasNested && !$wasQuoted && ($currentItem == 'NULL')) {
+                        $currentItem = null;
+                    }
+                    if (!$wasNested && ($subConverter instanceof ConverterInterface)) {
+                        $currentItem = $subConverter->decode($currentItem);
+                    }
+                    $result[] = $currentItem;
+                    $currentItem = '';
+                    $wasQuoted = false;
+                    break;
+                default:
+                    $currentItem .= $currentChar;
+                    break;
+            }
+        }
+
+        throw new InvalidArgumentException('Unable to parse array: failed to complete sequence');
     }
 }
