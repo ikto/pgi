@@ -3,8 +3,9 @@
 namespace IKTO\PgI\Tests\System;
 
 use IKTO\PgI\Database\Database;
+use PHPUnit\Framework\TestCase;
 
-class DataConversionTest extends \PHPUnit_Framework_TestCase
+class DataConversionTest extends TestCase
 {
     /* @var Database */
     private static $dbs;
