@@ -10,7 +10,7 @@
         }
     ],
     "require": {
-        "php": ">=5.3.3"
+        "php": ">=7.0"
     },
     "autoload" : {
         "psr-4" : { "IKTO\\" : ["src/"] }
@@ -19,6 +19,6 @@
         "psr-4": { "IKTO\\PgI\\Tests\\": ["tests/"] }
     },
     "require-dev": {
-        "phpunit/phpunit": "@stable"
+        "phpunit/phpunit": "~6.0"
     }
 }

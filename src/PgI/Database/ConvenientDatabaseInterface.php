@@ -28,7 +28,7 @@ interface ConvenientDatabaseInterface
      * @param array $params The parameters
      * @return array|null
      */
-    public function selectRowArray($query, $types = array(), $params = array());
+    public function selectRowArray($query, $types = [], $params = []);
 
     /**
      * Selects one row from database (as associative array)
@@ -38,7 +38,7 @@ interface ConvenientDatabaseInterface
      * @param array $params The parameters
      * @return array|null
      */
-    public function selectRowAssoc($query, $types = array(), $params = array());
+    public function selectRowAssoc($query, $types = [], $params = []);
 
     /**
      * Selects one column from all rows
@@ -48,7 +48,7 @@ interface ConvenientDatabaseInterface
      * @param array $params The parameters
      * @return array|null
      */
-    public function selectColArray($query, $types = array(), $params = array());
+    public function selectColArray($query, $types = [], $params = []);
 
     /**
      * Executes query with specified parameters
@@ -58,5 +58,5 @@ interface ConvenientDatabaseInterface
      * @param array $params The parameter
      * @return integer
      */
-    public function doQuery($query, $types = array(), $params = array());
+    public function doQuery($query, $types = [], $params = []);
 }

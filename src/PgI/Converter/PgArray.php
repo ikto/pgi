@@ -28,12 +28,13 @@ class PgArray implements
             throw new InvalidArgumentException('The array must be passed as php array');
         }
 
-        $result = array();
+        $result = [];
         try {
             $converter = $this->db->getConverterForType($type);
-        }
-        catch (MissingConverterException $ex) {
-            if (null != $type) { throw $ex; }
+        } catch (MissingConverterException $ex) {
+            if (null != $type) {
+                throw $ex;
+            }
         }
         foreach ($value as $element) {
             if (is_array($element)) {
@@ -68,9 +69,10 @@ class PgArray implements
         $converter = null;
         try {
             $converter = $this->db->getConverterForType($type);
-        }
-        catch (MissingConverterException $ex) {
-            if (null != $type) { throw $ex; }
+        } catch (MissingConverterException $ex) {
+            if (null != $type) {
+                throw $ex;
+            }
         }
 
         $index = 0;
@@ -88,7 +90,7 @@ class PgArray implements
      * @param integer $index
      * @param integer $length
      * @param ConverterInterface $subConverter
-     * @return array
+     * @return array|null
      */
     private function parsePgArray($src, &$index, $length = null, $subConverter = null)
     {
@@ -109,14 +111,13 @@ class PgArray implements
             // Checks if valid array string
             if (!is_array($result)) {
                 if ('{' == $currentChar) {
-                    $result = array();
+                    $result = [];
                     continue;
                 }
 
-                throw new InvalidArgumentException(sprintf(
-                    'Failed to parse array: expected "%s", but "%s" found',
-                    '{', $currentChar
-                ));
+                throw new InvalidArgumentException(
+                    sprintf('Failed to parse array: expected "%s", but "%s" found', '{', $currentChar)
+                );
             }
 
             // If char is escaped, just bypass it

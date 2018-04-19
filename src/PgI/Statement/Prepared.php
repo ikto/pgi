@@ -26,7 +26,7 @@ class Prepared extends Plain
         $this->prepare();
     }
 
-    public function execute(array $params = array())
+    public function execute(array $params = [])
     {
         $this->result = $this->db->pgExecute($this->name, $this->getParams($params));
 

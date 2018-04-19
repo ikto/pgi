@@ -37,7 +37,7 @@ interface StatementInterface
      * @param array $params The parameters (begin from 0)
      * @return bool True if query executed successfully
      */
-    public function execute(array $params = array());
+    public function execute(array $params = []);
 
     /**
      * Fetches one row from query result as numeric array
@@ -45,7 +45,7 @@ interface StatementInterface
      * @param array $types The result column types
      * @return array
      */
-    public function fetchRowArray(array $types = array());
+    public function fetchRowArray(array $types = []);
 
     /**
      * Fetches one row from query result as associative array
@@ -53,7 +53,7 @@ interface StatementInterface
      * @param array $types The result column types
      * @return array
      */
-    public function fetchRowAssoc(array $types = array());
+    public function fetchRowAssoc(array $types = []);
 
     /**
      * Gets all of certain column values

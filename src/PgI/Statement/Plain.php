@@ -15,13 +15,13 @@ class Plain implements StatementInterface
     protected $query;
 
     /* @var array */
-    protected $params = array();
+    protected $params = [];
 
     /* @var array */
-    protected $paramTypes = array();
+    protected $paramTypes = [];
 
     /* @var array */
-    protected $resultTypes = array();
+    protected $resultTypes = [];
 
     /* @var resource */
     protected $result = null;
@@ -52,7 +52,7 @@ class Plain implements StatementInterface
         $this->resultTypes[$field] = $type;
     }
 
-    public function execute(array $params = array())
+    public function execute(array $params = [])
     {
         $this->result = $this->db->pgQueryParams($this->query, $this->getParams($params));
 
@@ -65,7 +65,7 @@ class Plain implements StatementInterface
         return false;
     }
 
-    public function fetchRowArray(array $types = array())
+    public function fetchRowArray(array $types = [])
     {
         $this->assertResultExists();
 
@@ -74,7 +74,7 @@ class Plain implements StatementInterface
         return $row;
     }
 
-    public function fetchRowAssoc(array $types = array())
+    public function fetchRowAssoc(array $types = [])
     {
         $row = $this->fetchRowArray($types);
 
@@ -82,7 +82,7 @@ class Plain implements StatementInterface
             return false;
         }
 
-        $assoc = array();
+        $assoc = [];
 
         for ($i = 0, $j = count($row); $i < $j; $i++) {
             $assoc[pg_field_name($this->result, $i)] = $row[$i];
@@ -109,7 +109,7 @@ class Plain implements StatementInterface
         // Get column data
         $rows = pg_fetch_all_columns($this->result, $columnNumber);
 
-        $types = array_merge($this->resultTypes, array($columnNumber => $type));
+        $types = array_merge($this->resultTypes, [$columnNumber => $type]);
 
         // Try user-defined result type first
         $auto = false;
@@ -128,9 +128,10 @@ class Plain implements StatementInterface
         foreach ($rows as $key => $value) {
             try {
                 $rows[$key] = $this->db->decoder()->decode($value, $type);
-            }
-            catch (MissingConverterException $ex) {
-                if (!$auto) { throw $ex; }
+            } catch (MissingConverterException $ex) {
+                if (!$auto) {
+                    throw $ex;
+                }
             }
         }
 
@@ -157,13 +158,15 @@ class Plain implements StatementInterface
         }
     }
 
-    protected function getParams($userDefinedParams = array())
+    protected function getParams($userDefinedParams = [])
     {
         $params = $this->params;
 
         $i = 0;
         foreach ($userDefinedParams as $param) {
-            while (isset($params[$i])) { $i++; }
+            while (isset($params[$i])) {
+                $i++;
+            }
             $params[$i] = $param;
         }
 
@@ -174,16 +177,17 @@ class Plain implements StatementInterface
                     ->db
                     ->encoder()
                     ->encode($value, isset($this->paramTypes[$key]) ? $this->paramTypes[$key] : null);
-            }
-            catch (MissingConverterException $ex) {
-                if (isset($this->paramTypes[$key])) { throw $ex; }
+            } catch (MissingConverterException $ex) {
+                if (isset($this->paramTypes[$key])) {
+                    throw $ex;
+                }
             }
         }
 
         return $params;
     }
 
-    protected function fetchRow($result, $userDefinedResultTypes = array())
+    protected function fetchRow($result, $userDefinedResultTypes = [])
     {
         $row = pg_fetch_row($result);
 
@@ -210,14 +214,14 @@ class Plain implements StatementInterface
             try {
                 $type = pg_field_type($result, $key);
                 $row[$key] = $this->db->decoder()->decode($value, $type);
-            }
-            catch (MissingConverterException $ex) {
+            } catch (MissingConverterException $ex) {
                 // If $value was autodetected array
                 if ('_' == substr($type, 0, 1)) {
                     try {
                         $row[$key] = $this->db->decoder()->decode($value, '_');
+                    } catch (MissingConverterException $ex) {
+                        /* DO NOTHING */
                     }
-                    catch (MissingConverterException $ex) { /* DO NOTHING */ }
                 }
             }
         }

@@ -17,8 +17,7 @@ class PgTimestampWithTimezone extends PgTimestamp implements EncoderGuesserInter
     {
         try {
             $this->assertValidValue($value);
-        }
-        catch (InvalidArgumentException $ex) {
+        } catch (InvalidArgumentException $ex) {
             return false;
         }
 

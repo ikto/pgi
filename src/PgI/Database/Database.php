@@ -21,10 +21,10 @@ use IKTO\PgI\Converter\EncoderGuesserInterface;
 class Database implements DatabaseInterface, ConvenientDatabaseInterface
 {
     protected $connection;
-    protected $preparedStatements = array();
-    protected $savepointNames = array();
-    protected $transactionStack = array();
-    protected $converters = array();
+    protected $preparedStatements   = [];
+    protected $savepointNames       = [];
+    protected $transactionStack     = [];
+    protected $converters           = [];
 
     /* @var ParamEncoder */
     private $encoder;
@@ -89,7 +89,7 @@ class Database implements DatabaseInterface, ConvenientDatabaseInterface
         return new Plain($this, $query);
     }
 
-    public function doQuery($query, $types = array(), $params = array())
+    public function doQuery($query, $types = [], $params = [])
     {
         $query = $this->create($query);
         foreach ($params as $key => $value) {
@@ -100,7 +100,7 @@ class Database implements DatabaseInterface, ConvenientDatabaseInterface
         return $query->getAffectedRows();
     }
 
-    public function selectRowArray($query, $types = array(), $params = array())
+    public function selectRowArray($query, $types = [], $params = [])
     {
         $query = $this->create($query);
         foreach ($params as $key => $value) {
@@ -111,7 +111,7 @@ class Database implements DatabaseInterface, ConvenientDatabaseInterface
         return $query->fetchRowArray();
     }
 
-    public function selectRowAssoc($query, $types = array(), $params = array())
+    public function selectRowAssoc($query, $types = [], $params = [])
     {
         $query = $this->create($query);
         foreach ($params as $key => $value) {
@@ -122,7 +122,7 @@ class Database implements DatabaseInterface, ConvenientDatabaseInterface
         return $query->fetchRowAssoc();
     }
 
-    public function selectColArray($query, $types = array(), $params = array())
+    public function selectColArray($query, $types = [], $params = [])
     {
         $query = $this->create($query);
         foreach ($params as $key => $value) {
@@ -143,12 +143,8 @@ class Database implements DatabaseInterface, ConvenientDatabaseInterface
                 $name = $this->getSavepointName();
                 try {
                     $this->pgQuery('SAVEPOINT "' . $name . '"');
-                }
-                catch (QueryException $ex) {
-                    throw new TransactionException(
-                        sprintf('Cannot create savepoint %s', $name),
-                        null, $ex
-                    );
+                } catch (QueryException $ex) {
+                    throw new TransactionException(sprintf('Cannot create savepoint %s', $name), null, $ex);
                 }
                 $this->savepointNames[$name] = 1;
 
@@ -156,12 +152,8 @@ class Database implements DatabaseInterface, ConvenientDatabaseInterface
             default:
                 try {
                     $this->pgQuery('BEGIN');
-                }
-                catch (QueryException $ex) {
-                    throw new TransactionException(
-                        'Cannot start the transaction',
-                        null, $ex
-                    );
+                } catch (QueryException $ex) {
+                    throw new TransactionException('Cannot start the transaction', null, $ex);
                 }
 
                 break;
@@ -175,24 +167,16 @@ class Database implements DatabaseInterface, ConvenientDatabaseInterface
             try {
                 $this->pgQuery('ROLLBACK TO "' . $name . '"');
                 $this->pgQuery('RELEASE SAVEPOINT "' . $name . '"');
-            }
-            catch (QueryException $ex) {
-                throw new TransactionException(
-                    sprintf('Cannot rollback to savepoint %s', $name),
-                    null, $ex
-                );
+            } catch (QueryException $ex) {
+                throw new TransactionException(sprintf('Cannot rollback to savepoint %s', $name), null, $ex);
             }
 
             unset($this->savepointNames[$name]);
         } else {
             try {
                 $this->pgQuery('ROLLBACK');
-            }
-            catch (QueryException $ex) {
-                throw new TransactionException(
-                    'Cannot cancel transaction',
-                    null, $ex
-                );
+            } catch (QueryException $ex) {
+                throw new TransactionException('Cannot cancel transaction', null, $ex);
             }
         }
     }
@@ -203,24 +187,16 @@ class Database implements DatabaseInterface, ConvenientDatabaseInterface
             $name = array_pop($this->transactionStack);
             try {
                 $this->pgQuery('RELEASE SAVEPOINT "' . $name . '"');
-            }
-            catch (QueryException $ex) {
-                throw new TransactionException(
-                    sprintf('Cannot release savepoint %s', $name),
-                    null, $ex
-                );
+            } catch (QueryException $ex) {
+                throw new TransactionException(sprintf('Cannot release savepoint %s', $name), null, $ex);
             }
 
             unset($this->savepointNames[$name]);
         } else {
             try {
                 $this->pgQuery('COMMIT');
-            }
-            catch (QueryException $ex) {
-                throw new TransactionException(
-                    'Cannot commit transaction',
-                    null, $ex
-                );
+            } catch (QueryException $ex) {
+                throw new TransactionException('Cannot commit transaction', null, $ex);
             }
         }
     }
@@ -242,7 +218,7 @@ class Database implements DatabaseInterface, ConvenientDatabaseInterface
 
     public function getSeqNextValue($sequence)
     {
-        $res = $this->pgQueryParams('SELECT NEXTVAL($1::regclass)', array($sequence));
+        $res = $this->pgQueryParams('SELECT NEXTVAL($1::regclass)', [$sequence]);
 
         $row = pg_fetch_row($res);
         if (!$row) {
@@ -256,7 +232,7 @@ class Database implements DatabaseInterface, ConvenientDatabaseInterface
 
     public function getSeqCurrentValue($sequence)
     {
-        $res = $this->pgQueryParams('SELECT CURRVAL($1::regclass)', array($sequence));
+        $res = $this->pgQueryParams('SELECT CURRVAL($1::regclass)', [$sequence]);
 
         $row = pg_fetch_row($res);
         if (!$row) {
@@ -276,7 +252,7 @@ class Database implements DatabaseInterface, ConvenientDatabaseInterface
 
         if (PgExceptionHelper::provideQueryException(function ($connection, $name, $query) {
             return pg_prepare($connection, $name, $query);
-        }, array($this->connection, $name, $query))) {
+        }, [$this->connection, $name, $query])) {
             $this->preparedStatements[$name] = 1;
         }
     }
@@ -285,14 +261,14 @@ class Database implements DatabaseInterface, ConvenientDatabaseInterface
     {
         return PgExceptionHelper::provideQueryException(function ($connection, $name, $args) {
             return pg_execute($connection, $name, $args);
-        }, array($this->connection, $name, $args));
+        }, [$this->connection, $name, $args]);
     }
 
     public function pgDeallocate($name)
     {
         PgExceptionHelper::provideQueryException(function ($connection, $query) {
             return pg_query($connection, $query);
-        }, array($this->connection, "DEALLOCATE PREPARE \"{$name}\""));
+        }, [$this->connection, "DEALLOCATE PREPARE \"{$name}\""]);
         unset($this->preparedStatements[$name]);
     }
 
@@ -300,14 +276,14 @@ class Database implements DatabaseInterface, ConvenientDatabaseInterface
     {
         return PgExceptionHelper::provideQueryException(function ($connection, $query) {
             return pg_query($connection, $query);
-        }, array($this->connection, $query));
+        }, [$this->connection, $query]);
     }
 
     public function pgQueryParams($query, $params)
     {
         return PgExceptionHelper::provideQueryException(function ($connection, $query, $params) {
             return pg_query_params($connection, $query, $params);
-        }, array($this->connection, $query, $params));
+        }, [$this->connection, $query, $params]);
     }
 
     public function getPreparedStatementName($query)
@@ -398,7 +374,7 @@ class Database implements DatabaseInterface, ConvenientDatabaseInterface
     protected function createConverter($specification)
     {
         if (!is_array($specification)) {
-            $specification = array($specification);
+            $specification = [$specification];
         }
 
         if (!isset($specification[0])) {
@@ -442,17 +418,23 @@ class Database implements DatabaseInterface, ConvenientDatabaseInterface
      */
     protected function registerDefaultConverters()
     {
-        $this->registerConverter(DefaultTypes::ARRAY_OF, array('IKTO\\PgI\\Converter\\PgArray'));
-        $this->registerConverter(DefaultTypes::BOOLEAN, array('IKTO\\PgI\\Converter\\PgBoolean'));
-        $this->registerConverter(DefaultTypes::BYTEA, array('IKTO\\PgI\\Converter\\PgBytea'));
-        $this->registerConverter(DefaultTypes::FLOAT, array('IKTO\\PgI\\Converter\\PgFloat'));
-        $this->registerConverter(DefaultTypes::DOUBLE, array('IKTO\\PgI\\Converter\\PgFloat'));
-        $this->registerConverter(DefaultTypes::SMALLINT, array('IKTO\\PgI\\Converter\\PgInteger'));
-        $this->registerConverter(DefaultTypes::INTEGER, array('IKTO\\PgI\\Converter\\PgInteger'));
-        $this->registerConverter(DefaultTypes::BIGINT, array('IKTO\\PgI\\Converter\\PgInteger'));
-        $this->registerConverter(DefaultTypes::NUMERIC, array('IKTO\\PgI\\Converter\\PgFloat'));
-        $this->registerConverter(DefaultTypes::JSON, array('IKTO\\PgI\\Converter\\PgJson'));
-        $this->registerConverter(DefaultTypes::TIMESTAMP_WITHOUT_TIMEZONE, array('IKTO\\PgI\\Converter\\PgTimestamp'));
-        $this->registerConverter(DefaultTypes::TIMESTAMP_WITH_TIMEZONE, array('IKTO\\PgI\\Converter\\PgTimestampWithTimezone'));
+        $mapping = [
+            DefaultTypes::ARRAY_OF                      => 'PgArray',
+            DefaultTypes::BOOLEAN                       => 'PgBoolean',
+            DefaultTypes::BYTEA                         => 'PgBytea',
+            DefaultTypes::FLOAT                         => 'PgFloat',
+            DefaultTypes::DOUBLE                        => 'PgFloat',
+            DefaultTypes::SMALLINT                      => 'PgInteger',
+            DefaultTypes::INTEGER                       => 'PgInteger',
+            DefaultTypes::BIGINT                        => 'PgInteger',
+            DefaultTypes::NUMERIC                       => 'PgFloat',
+            DefaultTypes::JSON                          => 'PgJson',
+            DefaultTypes::TIMESTAMP_WITHOUT_TIMEZONE    => 'PgTimestamp',
+            DefaultTypes::TIMESTAMP_WITH_TIMEZONE       => 'PgTimestampWithTimezone',
+        ];
+
+        foreach ($mapping as $type => $class) {
+            $this->registerConverter($type, ["IKTO\\PgI\\Converter\\$class"]);
+        }
     }
 }

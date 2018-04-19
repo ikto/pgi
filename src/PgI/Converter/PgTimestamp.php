@@ -25,9 +25,10 @@ class PgTimestamp implements ConverterInterface
      */
     protected function assertValidValue($value)
     {
-        /* Also checks DateTime for PHP < 5.5.0 */
-        if (!($value instanceof \DateTime) && !($value instanceof \DateTimeInterface)) {
-            throw new InvalidArgumentException("The timestamp must be passed as instance of DateTime or DateTimeInterface");
+        if (!($value instanceof \DateTimeInterface)) {
+            throw new InvalidArgumentException(
+                "The timestamp must be passed as instance of DateTime or DateTimeInterface"
+            );
         }
     }
 }
