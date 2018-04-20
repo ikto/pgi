@@ -2,6 +2,7 @@
     "name" : "ikto/pgi",
     "type" : "library",
     "description" : "Simple PostgreSQL OOP interface",
+    "license": "MIT",
     "keywords": [],
     "authors": [
         {
