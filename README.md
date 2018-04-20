@@ -1,5 +1,7 @@
 # PgI: Simple PostgreSQL OOP interface
 
+[![Build Status](https://travis-ci.org/ikto/pgi.svg?branch=dev)](https://travis-ci.org/ikto/pgi)
+
 ## Short description
 
 This library is inspired by [Perl DBI](http://search.cpan.org/~timb/DBI-1.641/) module.
@@ -28,7 +30,6 @@ But be careful. It won't stop you if you wan't to shoot your leg :).
 Here is a couple of examples.
 
 ```php
-
 use IKTO/PgI;
 
 // Connecting to the database.
