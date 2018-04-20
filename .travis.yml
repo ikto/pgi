@@ -6,5 +6,6 @@ php:
 services:
     - postgresql
 before_script:
+    - composer install --dev
     - psql -c 'create database pgi_test;' -U postgres
     - psql -U postgres -d pgi_test -1 -f pgi_test.sql
