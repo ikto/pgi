@@ -9,3 +9,7 @@ before_script:
     - composer install --dev
     - psql -c 'create database pgi_test;' -U postgres
     - psql -U postgres -d pgi_test -1 -f pgi_test.sql
+notifications:
+  slack:
+    rooms:
+      - secure: Lg5AlY6jwewt1d4wwgKPTbSY/IiLW5ErSd+yiOlWbsKHpa+iGp6RsPbSBCnqn1iL3s0Aeyv9xmUOLFoN/D2Q3yvKWSC5m/V2G3OFTND9gblKFYqEjZUHrrUlcW8AbPabSRLIODcufTfO7SWxI8yYMmCbOCuiO7IkV4GcP43k2nQ=
