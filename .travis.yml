@@ -13,4 +13,4 @@ before_script:
 notifications:
   slack:
     rooms:
-      - secure: d2zqCiSp3auqg6U/Fy9YBPAvCd3u/XKwWGQbRBvdSKaDmPN7cedWDIfxJB36angbUYzSCSN5kbt7vxCe4hjSKU1R4vTCunpWnCJ6jbaHIk01s9DSYE8juNbE3I7om7bsl6SNWg79/uI0o1T6WiC3uauYJDRo7qeC7QpCqqIBM08=
+      - secure: gkz+hz9QGqBkxp436dTfyYxhgaYmLJxQEWbV9iyoMTCaEazAS/8rDPSxXtF6dtJ9KnjOztpmQ0rNj+YxYhksIkTXhFAFJZVl/T+NauCLNCKRgNnC/QsLD4EC0r/oilbUzMo9eucc5In3oY5PSjj9qRaqtNQPiE+BNDyI/2P9ryw=
