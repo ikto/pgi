@@ -12,7 +12,8 @@
     ],
     "require": {
         "php": ">=7.0",
-        "ext-pgsql": "*"
+        "ext-pgsql": "*",
+        "ext-json": "*"
     },
     "autoload" : {
         "psr-4" : { "IKTO\\" : ["src/"] }

@@ -10,7 +10,7 @@ class PgTimestampWithTimezone extends PgTimestamp implements EncoderGuesserInter
     {
         $this->assertValidValue($value);
 
-        return $value->format(\DateTime::W3C);
+        return $value->format('Y-m-d\TH:i:sP');
     }
 
     public function canEncode($value)

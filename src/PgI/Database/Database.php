@@ -93,7 +93,7 @@ class Database implements DatabaseInterface, ConvenientDatabaseInterface
     {
         $query = $this->create($query);
         foreach ($params as $key => $value) {
-            $query->bindValue($key+1, $value, isset($types[$key]) ? $types[$key] : null);
+            $query->bindValue($key+1, $value, $types[$key] ?? null);
         }
         $query->execute();
 
@@ -104,7 +104,7 @@ class Database implements DatabaseInterface, ConvenientDatabaseInterface
     {
         $query = $this->create($query);
         foreach ($params as $key => $value) {
-            $query->bindValue($key+1, $value, isset($types[$key]) ? $types[$key] : null);
+            $query->bindValue($key+1, $value, $types[$key] ?? null);
         }
         $query->execute();
 
@@ -115,7 +115,7 @@ class Database implements DatabaseInterface, ConvenientDatabaseInterface
     {
         $query = $this->create($query);
         foreach ($params as $key => $value) {
-            $query->bindValue($key+1, $value, isset($types[$key]) ? $types[$key] : null);
+            $query->bindValue($key+1, $value, $types[$key] ?? null);
         }
         $query->execute();
 
@@ -126,7 +126,7 @@ class Database implements DatabaseInterface, ConvenientDatabaseInterface
     {
         $query = $this->create($query);
         foreach ($params as $key => $value) {
-            $query->bindValue($key+1, $value, isset($types[$key]) ? $types[$key] : null);
+            $query->bindValue($key+1, $value, $types[$key] ?? null);
         }
         $query->execute();
 

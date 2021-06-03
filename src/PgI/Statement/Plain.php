@@ -113,10 +113,10 @@ class Plain implements StatementInterface
 
         // Try user-defined result type first
         $auto = false;
-        $type = isset($types[$columnNumber]) ? $types[$columnNumber] : null;
+        $type = $types[$columnNumber] ?? null;
         if (null === $type) {
             $name = pg_field_name($this->result, $columnNumber);
-            $type = isset($types[$name]) ? $types[$name] : null;
+            $type = $types[$name] ?? null;
         }
 
         // And then try to get type from result
@@ -176,7 +176,7 @@ class Plain implements StatementInterface
                 $params[$key] = $this
                     ->db
                     ->encoder()
-                    ->encode($value, isset($this->paramTypes[$key]) ? $this->paramTypes[$key] : null);
+                    ->encode($value, $this->paramTypes[$key] ?? null);
             } catch (MissingConverterException $ex) {
                 if (isset($this->paramTypes[$key])) {
                     throw $ex;
@@ -199,10 +199,10 @@ class Plain implements StatementInterface
 
         foreach ($row as $key => $value) {
             // Try user-defined result type first
-            $type = isset($types[$key]) ? $types[$key] : null;
+            $type = $types[$key] ?? null;
             if (null === $type) {
                 $name = pg_field_name($result, $key);
-                $type = isset($types[$name]) ? $types[$name] : null;
+                $type = $types[$name] ?? null;
             }
 
             if ($type) {

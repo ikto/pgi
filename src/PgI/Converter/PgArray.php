@@ -165,7 +165,6 @@ class PgArray implements
                     }
 
                     return $result;
-                    break;
                 case '"':
                     // We can have only one quotation
                     if ($wasQuoted) {
